@@ -3,7 +3,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContaine
 import { useTwin } from '../../application/TwinContext';
 import { ENERGY, fleetPower, formatCop, formatNumber } from '../../domain/kpis';
 import { HvacBadge } from '../components/StatusBadge';
-import { BRANCH_LABEL } from '../theme';
+import { floorName } from '../../campus/plan';
 
 const time = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' });
 
@@ -16,9 +16,8 @@ interface PowerPoint {
 export function EnergyView() {
   const { snapshot, twin } = useTwin();
   const branchOf = (spaceId: string) => {
-    const branchId = twin(spaceId)?.space.branchId;
-    const label = branchId ? BRANCH_LABEL[branchId] : undefined;
-    return label ? `${label.name}, ${label.city}` : '';
+    const space = twin(spaceId)?.space;
+    return space ? `${space.buildingName}, ${floorName(space.floor)}` : '';
   };
   const savings = snapshot.savings;
   const power = fleetPower(snapshot.twins, snapshot.now);

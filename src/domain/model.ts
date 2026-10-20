@@ -50,7 +50,29 @@ export const COMPRESSOR_ON: ReadonlySet<HvacControlState> = new Set([
 
 export type ZoneDeskState = 'DISPONIBLE' | 'OCUPADO_VERIFICADO' | 'ALERTA_ACAPARAMIENTO' | 'LIBERADO_POR_ABANDONO';
 export type DetectedObjectClass = 'PERSON' | 'LAPTOP' | 'BACKPACK' | 'BOOK';
-export type SpaceType = 'AULA' | 'BIBLIOTECA' | 'LABORATORIO' | 'AUDITORIO' | 'ZONA_COMUN';
+export type SpaceType =
+  | 'AULA'
+  | 'SALA_ESTUDIO'
+  | 'AUDITORIO'
+  | 'ADMINISTRATIVA'
+  | 'LOGISTICA'
+  | 'BIBLIOTECA'
+  | 'CAFETERIA'
+  | 'LABORATORIO'
+  | 'SALA_COMPUTO'
+  | 'ZONA_COMUN';
+
+/** Java: RoomCondition, the overall state of a room on the campus map. */
+export const ROOM_CONDITIONS = [
+  'LIBRE',
+  'OCUPADO',
+  'SOBRECUPO',
+  'LUCES_SIN_OCUPACION',
+  'EQUIPOS_SIN_USO',
+  'LUCES_Y_EQUIPOS_SIN_USO',
+  'MANTENIMIENTO',
+] as const;
+export type RoomCondition = (typeof ROOM_CONDITIONS)[number];
 export type ClimateProfile = 'SEDE_TROPICAL' | 'SEDE_ANDINA' | 'SEDE_TEMPLADA';
 export type MeasurementSource = 'CAMARA_YOLO' | 'CO2_BALANCE_MASICO' | 'WIFI_DISPOSITIVOS';
 export type HexagonalLayer =
@@ -68,12 +90,19 @@ export interface CampusSpace {
   type: SpaceType;
   capacity: number;
   areaSqm: number;
+  buildingId: string;
   buildingName: string;
   branchId: string;
   branchName: string;
   city: string;
   climateProfile: ClimateProfile;
   energyTariffCopPerKwh: number;
+  floor: number;
+  /** Workstations whose power state the room's Arduino reports. */
+  computers: number;
+  /** Seat grid seen by the ceiling camera; null for offices and storage rooms. */
+  seatRows: number | null;
+  seatColumns: number | null;
 }
 
 /** Normalized image point, [x, y] in 0..1. */
@@ -115,6 +144,18 @@ export interface TelemetrySnapshot {
   illuminanceLux: number;
   wifiDevices: number;
   activePowerKw: number;
+}
+
+/** Java: EnvironmentReading, published by the room Arduino (DHT22, light sensor, current sensor). */
+export interface EnvironmentReading {
+  spaceId: string;
+  capturedAt: number;
+  temperatureC: number;
+  humidityPct: number;
+  co2Ppm: number | null;
+  illuminanceLux: number;
+  lightsOn: boolean;
+  devicesOn: number;
 }
 
 export interface Reservation {
@@ -186,6 +227,15 @@ export interface SpaceTwinState {
   desks: DeskObservation[];
   kalman: KalmanStep | null;
   thermal: ThermalDecision | null;
+  condition: RoomCondition;
+  lightsOn: boolean;
+  illuminanceLux: number;
+  devicesOn: number;
+  devicesTotal: number;
+  /** When the room became empty; null while there are people. */
+  emptySince: string | null;
+  /** Last automatic shutdown of lights and computers. */
+  equipmentShutdownAt: string | null;
 }
 
 /** TwinContracts.TwinSpaceResponse. */
@@ -236,13 +286,14 @@ export const SIMULATION_SCENARIOS = [
   'CLASE_EN_CURSO',
   'CO2_ALTO',
   'FALLO_CAMARA',
-  'NO_SHOW',
-  'PRE_ENFRIAMIENTO',
-  'OVERRIDE_DOCENTE',
   'SOBRECUPO',
-  'MANTENIMIENTO',
+  'NO_SHOW',
   'SUBUTILIZADO',
   'POPUP_PARCIALES',
+  'LUCES_ENCENDIDAS',
+  'EQUIPOS_ENCENDIDOS',
+  'OVERRIDE_DOCENTE',
+  'MANTENIMIENTO',
   'ACAPARAMIENTO_BIBLIOTECA',
   'REINICIAR',
 ] as const;

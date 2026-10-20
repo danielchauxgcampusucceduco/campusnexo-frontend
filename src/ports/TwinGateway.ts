@@ -42,6 +42,8 @@ export interface GatewayCapabilities {
   cameraControl: boolean;
   /** Simulated time can be accelerated. */
   timeScale: boolean;
+  /** The room lights can be switched from the dashboard (someone at the wall switch). */
+  lightControl: boolean;
 }
 
 /** Driven port of the dashboard: everything the UI needs from a data source. */
@@ -55,6 +57,7 @@ export interface TwinGateway {
   scenarios(): ScenarioInfo[];
   runScenario(scenario: SimulationScenario): Promise<ArchitectureTrace | null>;
   setCameraOnline(spaceId: string, online: boolean): void;
+  setLights(spaceId: string, on: boolean): void;
   checkIn(spaceId: string, zoneId: string): Promise<void>;
   setTimeScale(scale: number): void;
   timeScale(): number;

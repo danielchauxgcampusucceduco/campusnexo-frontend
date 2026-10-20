@@ -1,6 +1,6 @@
 # CampusNexo Dashboard
 
-Panel del gemelo digital de CampusNexo: visión edge en vivo, gemelo 2.5D de las tres sedes, monitor anti-acaparamiento de la biblioteca con la app estudiantil, trazabilidad de la arquitectura hexagonal y ahorro energético. Está hecho con React 19, TypeScript, Tailwind CSS 4, Recharts y Lucide.
+Panel del gemelo digital de CampusNexo para la Universidad Cooperativa de Colombia, campus Pasto: los planos reales del campus (actualización 2025-B) con cada salón pintado según su ocupación, luces, equipos y temperatura; la cámara con IA de cada salón; el monitor anti-acaparamiento de la biblioteca con la app estudiantil; una explicación sencilla de cómo funciona (con la arquitectura hexagonal a un clic) y el ahorro energético. Está hecho con React 19, TypeScript, Tailwind CSS 4, Recharts y Lucide.
 
 ## Arquitectura hexagonal también en el frontend
 
@@ -29,13 +29,13 @@ El dominio TypeScript replica la matemática del backend, y `src/domain/domain.t
 
 | Ruta | Qué muestra |
 |---|---|
-| `#/gemelo` | Mapa isométrico de las tres sedes: altura sólida = ocupación, marco = aforo, color = estado y estrategia HVAC. El detalle incluye la trayectoria térmica prevista contra la banda de confort. |
-| `#/camara` | Vista cenital a la frecuencia del monitor: ROI por mesa con su estado y cuenta regresiva, cajas YOLO/ByteTrack, pixelado de privacidad, fallo de cámara y las ecuaciones de Kalman con los valores del último frame. |
+| `#/campus` | Planos reales del campus, piso por piso (bloques A y B). Cada salón se colorea por su estado: libre, ocupado, sobrecupo, luces encendidas sin nadie, equipos encendidos sin uso o mantenimiento; muestra el porcentaje de ocupación, los pupitres ocupados, el brillo de las luces y los computadores encendidos. La torre de pisos resume cada piso y el panel lateral da el detalle del salón con su Arduino. |
+| `#/salon` | La cámara con IA de un salón: personas, portátiles, morrales y libros, y el pupitre de cada uno; mapa de pupitres, lecturas del Arduino (DHT22, fotorresistencia, sensor de corriente, CO₂) y cómo se juntan cámara, CO₂ y Wi-Fi para contar personas (las ecuaciones de Kalman quedan a un clic). |
 | `#/biblioteca` | Monitor de las 8 mesas con cronómetro de 15 min y maqueta de la app estudiantil: mesas libres, check-in con código QR y aulas pop-up para parciales. |
-| `#/arquitectura` | Hexágono por capas que se ilumina paso a paso con la traza real de cada evento: adaptador de entrada, puerto, caso de uso, dominio, puertos de salida y adaptadores de salida. |
+| `#/funciona` | Los cuatro pasos (mira, mide, decide, actúa) con los valores en vivo del salón seleccionado. El botón «Ver el recorrido técnico» abre el hexágono por capas que se ilumina con la traza real de cada evento. |
 | `#/energia` | Potencia actual frente al horario convencional; kWh, COP y kg CO₂ acumulados por espacio. |
 
-La columna izquierda dispara los 12 escenarios de sustentación, agrupados por lo que demuestran. Después de cada uno, una franja grande arriba de la vista resume la causa (lo medido), la decisión (la regla del dominio que la tomó) y el efecto (lo que se le ordenó al HVAC), y se actualiza en vivo mientras el espacio se asienta. En la simulación también se puede acelerar el tiempo (por ejemplo, a 60×, los 15 minutos del cronómetro pasan en 15 segundos).
+La columna izquierda dispara los 13 escenarios de sustentación, agrupados por lo que demuestran. Después de cada uno, una franja grande arriba de la vista resume la causa (lo medido), la decisión (la regla del dominio que la tomó) y el efecto (lo que se le ordenó al clima o al Arduino), y se actualiza en vivo mientras el espacio se asienta. En la simulación también se puede acelerar el tiempo (por ejemplo, a 60×, los 15 minutos del cronómetro pasan en 15 segundos).
 
 ### Modo presentación y atajos
 
@@ -43,11 +43,11 @@ Con el modo presentación activo (tecla `P`, activo por defecto), cada escenario
 
 | Tecla | Acción |
 |---|---|
-| `1`–`9`, `0`, `B` | Escenarios, en el orden de la columna |
+| `1`–`9`, `0`, `M`, `B` | Escenarios, en el orden de la columna |
 | `R` | Reiniciar todo |
-| `G` `C` `L` `A` `E` | Gemelo, Cámara, Biblioteca, Arquitectura, Energía |
+| `C` `S` `L` `F` `E` | Campus, Salón, Biblioteca, Cómo funciona, Energía |
 | `P` | Activar o desactivar el modo presentación |
-| `Espacio`, `←` `→` | En Arquitectura: pausar el recorrido y avanzarlo paso a paso |
+| `Espacio`, `←` `→` | En el recorrido técnico: pausar el recorrido y avanzarlo paso a paso |
 
 ## Desarrollo
 
@@ -76,6 +76,7 @@ En un hosting estático (por ejemplo, un Static Site de Render), compila con `VI
 
 ## Límites
 
+- Los salones, sus códigos, pisos y áreas salen del plano `PLANOS_UCC_2025_-_B.dwg` (`src/campus/campusPlan.json`, generado con `tools/plan/` del backend). El número de pupitres y de computadores se estima a partir del tipo y del área: no está en el plano.
 - La escena de la cámara es una representación: el edge no envía imágenes al dashboard. Con el backend, la escena se reconstruye a partir del gemelo (mesas y ocupación).
 - El check-in de la app y el control directo de la cámara solo están en la simulación, porque con el backend requieren credenciales de estudiante o de dispositivo.
 - Los parámetros (umbrales, tarifas, factor de emisión) son ilustrativos, igual que en el backend.

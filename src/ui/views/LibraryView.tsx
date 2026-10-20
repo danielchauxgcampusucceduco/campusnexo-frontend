@@ -5,12 +5,13 @@ import { StudentPhone } from '../components/StudentPhone';
 import { DESK_META } from '../theme';
 import { useLiveNow } from '../components/useLiveNow';
 import { useStage } from '../StageContext';
+import { LIBRARY_ID } from '../../adapters/simulation/campusSeed';
 
 export function LibraryView() {
   const { gateway, snapshot, twin } = useTwin();
   const { play, running } = useStage();
   const now = useLiveNow(snapshot.now, gateway.timeScale());
-  const library = twin('BIB-PISO-2');
+  const library = twin(LIBRARY_ID);
   if (!library) return null;
   const desks = library.state.desks;
   const alerts = desks.filter((d) => d.state === 'ALERTA_ACAPARAMIENTO').length;

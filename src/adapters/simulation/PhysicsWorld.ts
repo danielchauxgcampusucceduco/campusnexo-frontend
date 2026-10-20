@@ -1,6 +1,7 @@
 import { boxAround, polygonCentroid } from '../../domain/geometry';
 import { COMPRESSOR_ON, type CampusSpace, type DetectedObjectClass, type HvacControlState, type NormalizedPoint, type StudyZoneRoi, type TrackedDetection } from '../../domain/model';
 import { THERMAL_PARAMETERS } from '../../domain/thermal';
+import { LIBRARY_ID } from './campusSeed';
 
 /** Something the ceiling camera can see. Positions are normalized image coordinates. */
 export interface Agent {
@@ -28,9 +29,11 @@ const BOX: Record<DetectedObjectClass, [number, number]> = {
 const YOLO_MISS_PROBABILITY = 0.02;
 
 /**
- * Physical state of one room: people and objects (for the camera) plus air temperature, CO2,
- * humidity and light. Temperature follows the same RC model as the MPC, and CO2 relaxes towards
- * the steady state Cₑₓₜ + n·1000/A used by the Kalman mass-balance measurement.
+ * Physical state of one room: people and objects (for the camera), the air (temperature, CO2,
+ * humidity) and what the room's Arduino reads (light level, lighting relay, computers drawing power).
+ * Temperature follows the same RC model as the MPC, and CO2 relaxes towards the steady state
+ * Cₑₓₜ + n·1000/A used by the Kalman mass-balance measurement. In rooms with a seat grid, people walk
+ * to a free seat; anyone beyond the seats stands at the front.
  */
 export class RoomPhysics {
   agents: Agent[] = [];
@@ -40,22 +43,55 @@ export class RoomPhysics {
   humidityPct: number;
   illuminanceLux: number;
   cameraOnline = true;
+  lightsOn = false;
+  devicesOn = 0;
   private nextTrackId = 1;
 
   constructor(readonly space: CampusSpace, outdoorC: number, readonly rois: readonly StudyZoneRoi[]) {
     this.outdoorC = outdoorC;
     this.indoorC = space.climateProfile === 'SEDE_TROPICAL' ? 27 : space.climateProfile === 'SEDE_ANDINA' ? 20.5 : 22.5;
     this.humidityPct = space.climateProfile === 'SEDE_TROPICAL' ? 70 : 55;
-    this.illuminanceLux = space.type === 'BIBLIOTECA' ? 420 : 330;
+    this.illuminanceLux = 90;
+  }
+
+  /** Seats people take one by one (the library tables belong to the anti-hoarding monitor instead). */
+  private get seatsForPeople(): boolean {
+    return this.rois.length > 0 && this.space.spaceId !== LIBRARY_ID;
+  }
+
+  setLights(on: boolean): void {
+    this.lightsOn = on;
+  }
+
+  setDevices(count: number): void {
+    this.devicesOn = Math.max(0, Math.min(this.space.computers, Math.round(count)));
+  }
+
+  /** Light sensor reading: the lamps when they are on, otherwise the daylight through the windows. */
+  lux(): number {
+    return this.lightsOn ? 410 : 85;
   }
 
   people(): Agent[] {
     return this.agents.filter((a) => a.objectClass === 'PERSON' && !a.leaving);
   }
 
-  /** Seats in a classroom grid, or the aisle band of the library (outside every desk ROI). */
+  /** A free seat region, then the front band; the aisle band of the library; or a grid for offices. */
   private freeSeat(): NormalizedPoint {
     const taken = this.agents.filter((a) => a.objectClass === 'PERSON' && !a.leaving).map((a) => [a.targetX, a.targetY] as const);
+    if (this.seatsForPeople) {
+      const free = this.rois.filter((roi) => {
+        const [cx, cy] = polygonCentroid(roi.polygon);
+        return !taken.some(([tx, ty]) => Math.abs(tx - cx) < 0.004 && Math.abs(ty - cy) < 0.004);
+      });
+      if (free.length > 0) return polygonCentroid(free[Math.floor(Math.random() * free.length)]!.polygon);
+      for (let index = 0; index < 36; index++) {
+        const x = 0.06 + (index % 12) * 0.078;
+        const y = 0.08 + Math.floor(index / 12) * 0.07;
+        if (!taken.some(([tx, ty]) => Math.abs(tx - x) < 0.01 && Math.abs(ty - y) < 0.01)) return [x, y];
+      }
+      return [0.1 + Math.random() * 0.8, 0.08 + Math.random() * 0.14];
+    }
     const isLibrary = this.rois.length > 0;
     const columns = isLibrary ? 12 : Math.ceil(Math.sqrt(this.space.capacity * 1.7));
     const rows = isLibrary ? 3 : Math.ceil((this.space.capacity * 1.6) / columns);
@@ -194,7 +230,9 @@ export class RoomPhysics {
     return Math.round(this.people().length * 1.1);
   }
 
+  /** Lighting (≈ 10 W/m²), computers (≈ 120 W each) and the share of the HVAC in use. */
   activePowerKw(hvacPowerShare: number, ratedKw: number): number {
-    return Math.round((0.35 + this.people().length * 0.04 + hvacPowerShare * ratedKw) * 100) / 100;
+    const lights = this.lightsOn ? this.space.areaSqm * 0.01 : 0;
+    return Math.round((0.1 + lights + this.devicesOn * 0.12 + hvacPowerShare * ratedKw) * 100) / 100;
   }
 }

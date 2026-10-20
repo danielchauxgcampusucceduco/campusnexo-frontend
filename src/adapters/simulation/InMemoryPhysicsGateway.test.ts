@@ -9,46 +9,81 @@ async function stateAfter(scenario: SimulationScenario, spaceId: string) {
   const gateway = new InMemoryPhysicsGateway(START);
   const trace = await gateway.runScenario(scenario);
   const twin = gateway.getSnapshot().twins.find((t) => t.space.spaceId === spaceId)!;
-  return { trace, state: twin.state };
+  return { trace, state: twin.state, twin };
 }
 
+const seated = (state: { desks: { state: string }[] }) => state.desks.filter((d) => d.state === 'OCUPADO_VERIFICADO').length;
+
+describe('campus de la simulación local', () => {
+  it('tiene los salones del plano en los bloques A y B con sus pupitres', () => {
+    const twins = new InMemoryPhysicsGateway(START).getSnapshot().twins;
+    expect(twins).toHaveLength(107);
+    expect(twins.some((t) => t.space.buildingId === 'BLOQUE-A')).toBe(true);
+    expect(twins.find((t) => t.space.spaceId === '421-A')!.rois).toHaveLength(30);
+    expect(twins.find((t) => t.space.spaceId === '4A-SALA-DE-JUNTAS-GALERAS')!.rois).toHaveLength(0);
+  });
+});
+
 describe('escenarios de la simulación local', () => {
-  it('no-show libera el aula y bloquea el HVAC', async () => {
-    const { state, trace } = await stateAfter('NO_SHOW', 'AULA-MAGNA-204');
-    expect(state.status).toBe('LIBERADO_POR_NO_SHOW');
-    expect(state.hvacState).toBe('BLOQUEO_AHORRO_VACIO');
+  it('clase en curso: 26 pupitres ocupados y luces encendidas', async () => {
+    const { state, trace } = await stateAfter('CLASE_EN_CURSO', '421-A');
+    expect(state.status).toBe('OCUPADO_OPTIMO');
+    expect(state.condition).toBe('OCUPADO');
+    expect(state.lightsOn).toBe(true);
+    expect(seated(state)).toBe(26);
     expect(trace?.steps[0]?.layer).toBe('INBOUND_ADAPTER');
     expect(trace?.steps.at(-1)?.layer).toBe('OUTBOUND_ADAPTER');
   });
 
-  it('pre-enfriamiento en el aula tropical', async () => {
-    expect((await stateAfter('PRE_ENFRIAMIENTO', 'AULA-MAGNA-204')).state.hvacState).toBe('PRE_ENFRIAMIENTO_IA');
+  it('no-show libera el salón y apaga el clima', async () => {
+    const { state } = await stateAfter('NO_SHOW', '402-B');
+    expect(state.status).toBe('LIBERADO_POR_NO_SHOW');
+    expect(state.hvacState).toBe('BLOQUEO_AHORRO_VACIO');
   });
 
-  it('mantenimiento, override docente y aula pop-up', async () => {
-    expect((await stateAfter('MANTENIMIENTO', 'LAB-IA-102')).state.status).toBe('MANTENIMIENTO');
-    expect((await stateAfter('OVERRIDE_DOCENTE', 'AULA-MAGNA-204')).state.hvacState).toBe('OVERRIDE_MANUAL_DOCENTE');
-    expect((await stateAfter('POPUP_PARCIALES', 'AULA-ADM-101')).state.status).toBe('HABILITADO_POPUP_PARCIALES');
+  it('sobrecupo en el laboratorio: 15 puestos ocupados', async () => {
+    const { state } = await stateAfter('SOBRECUPO', '3B-DE-BIOPROCESOS-LABORATORIO');
+    expect(state.condition).toBe('SOBRECUPO');
+    expect(seated(state)).toBe(15);
+  });
+
+  it('luces encendidas en un salón vacío: el Arduino las apaga', async () => {
+    const { state, trace } = await stateAfter('LUCES_ENCENDIDAS', '423-A');
+    expect(state.lightsOn).toBe(false);
+    expect(state.condition).toBe('LIBRE');
+    expect(trace?.steps.some((s) => s.component === 'RoomEquipmentCommandPort.send')).toBe(true);
+  });
+
+  it('equipos encendidos en la sala de cómputo vacía: se suspenden', async () => {
+    const { state } = await stateAfter('EQUIPOS_ENCENDIDOS', '309-A');
+    expect(state.devicesOn).toBe(0);
+    expect(state.devicesTotal).toBe(24);
+  });
+
+  it('mantenimiento, control docente y sala de estudio para parciales', async () => {
+    expect((await stateAfter('MANTENIMIENTO', '2B-LABORATORIO-MULTIFUNCIONAL')).state.condition).toBe('MANTENIMIENTO');
+    expect((await stateAfter('OVERRIDE_DOCENTE', '420-A')).state.hvacState).toBe('OVERRIDE_MANUAL_DOCENTE');
+    expect((await stateAfter('POPUP_PARCIALES', '503-A')).state.status).toBe('HABILITADO_POPUP_PARCIALES');
   });
 
   it('acaparamiento: mesa 1 liberada por abandono y mesa 2 en alerta', async () => {
-    const { state } = await stateAfter('ACAPARAMIENTO_BIBLIOTECA', 'BIB-PISO-2');
+    const { state } = await stateAfter('ACAPARAMIENTO_BIBLIOTECA', 'BIBLIOTECA-2B');
     const desk = (id: string) => state.desks.find((d) => d.zoneId === id)?.state;
     expect(state.desks).toHaveLength(8);
-    expect(desk('BIB2-M01')).toBe('LIBERADO_POR_ABANDONO');
-    expect(desk('BIB2-M02')).toBe('ALERTA_ACAPARAMIENTO');
+    expect(desk('BIB2B-M01')).toBe('LIBERADO_POR_ABANDONO');
+    expect(desk('BIB2B-M02')).toBe('ALERTA_ACAPARAMIENTO');
   });
 
   it('el fallo de cámara deja el filtro con dos mediciones', async () => {
-    const { state } = await stateAfter('FALLO_CAMARA', 'AULA-301');
+    const { state } = await stateAfter('FALLO_CAMARA', '421-A');
     expect(state.cameraOnline).toBe(false);
     expect(state.kalman?.measurements).toHaveLength(2);
   });
 
   it('el check-in pone a un estudiante en la mesa', async () => {
     const gateway = new InMemoryPhysicsGateway(START);
-    await gateway.checkIn('BIB-PISO-2', 'BIB2-M08');
-    const library = gateway.getSnapshot().twins.find((t) => t.space.spaceId === 'BIB-PISO-2')!;
-    expect(library.state.desks.find((d) => d.zoneId === 'BIB2-M08')?.state).toBe('OCUPADO_VERIFICADO');
+    await gateway.checkIn('BIBLIOTECA-2B', 'BIB2B-M08');
+    const library = gateway.getSnapshot().twins.find((t) => t.space.spaceId === 'BIBLIOTECA-2B')!;
+    expect(library.state.desks.find((d) => d.zoneId === 'BIB2B-M08')?.state).toBe('OCUPADO_VERIFICADO');
   });
 });

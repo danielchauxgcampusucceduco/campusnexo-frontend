@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTwin } from '../application/TwinContext';
-import type { SimulationScenario } from '../domain/model';
-import type { ArchitectureTrace, HvacControlState, ScenarioInfo } from '../domain/model';
-import { summarizeOutcome, type ScenarioOutcome } from './outcome';
+import type { ArchitectureTrace, ScenarioInfo, SimulationScenario } from '../domain/model';
+import { SCENARIO_CATALOG } from '../domain/scenarios';
+import { summarizeOutcome, type Before, type ScenarioOutcome } from './outcome';
 import { SCENARIO_STAGE, type ViewId } from './scenarioPlaybook';
 
 const PRESENTATION_KEY = 'campusnexo.presentation';
@@ -41,9 +41,9 @@ export function navigate(view: ViewId) {
 /** UI choreography of the live defense, on top of the application's runScenario use case. */
 export function StageProvider({ children }: { children: ReactNode }) {
   const { scenarios, runScenario, gateway, twin } = useTwin();
-  const [selectedSpace, setSelectedSpace] = useState('AULA-301');
+  const [selectedSpace, setSelectedSpace] = useState(SCENARIO_CATALOG[0]!.spaceId);
   const [presentation, setPresentationState] = useState(readPresentation);
-  const [played, setPlayed] = useState<{ id: number; scenario: SimulationScenario; info?: ScenarioInfo; trace: ArchitectureTrace | null; target: string | null; hvacBefore: HvacControlState | null } | null>(null);
+  const [played, setPlayed] = useState<{ id: number; scenario: SimulationScenario; info?: ScenarioInfo; trace: ArchitectureTrace | null; target: string | null; before: Before | null } | null>(null);
   const [running, setRunning] = useState<SimulationScenario | null>(null);
   const [pulseSpace, setPulseSpace] = useState<string | null>(null);
   const [focus, setFocus] = useState<StageValue['focus']>(null);
@@ -68,11 +68,12 @@ export function StageProvider({ children }: { children: ReactNode }) {
     }
     const view = SCENARIO_STAGE[scenario].view;
     if (presentation && view) navigate(view);
-    const hvacBefore = target ? gateway.getSnapshot().twins.find((t) => t.space.spaceId === target)?.state.hvacState ?? null : null;
+    const previous = target ? gateway.getSnapshot().twins.find((t) => t.space.spaceId === target)?.state : undefined;
+    const before: Before | null = previous ? { hvac: previous.hvacState, lightsOn: previous.lightsOn, devicesOn: previous.devicesOn } : null;
     setRunning(scenario);
     const trace = await runScenario(scenario);
     setRunning(null);
-    setPlayed((current) => ({ id: (current?.id ?? 0) + 1, scenario, info, trace, target, hvacBefore }));
+    setPlayed((current) => ({ id: (current?.id ?? 0) + 1, scenario, info, trace, target, before }));
     if (target) {
       clearTimeout(pulseTimer.current);
       setPulseSpace(target);
@@ -81,7 +82,7 @@ export function StageProvider({ children }: { children: ReactNode }) {
   }, [running, scenarios, presentation, runScenario, gateway]);
 
   const liveTwin = played?.target ? twin(played.target) : undefined;
-  const outcome = played ? { ...summarizeOutcome(played.scenario, played.info, played.trace, liveTwin, played.hvacBefore), id: String(played.id) } : null;
+  const outcome = played ? { ...summarizeOutcome(played.scenario, played.info, played.trace, liveTwin, played.before), id: String(played.id) } : null;
 
   useEffect(() => () => clearTimeout(pulseTimer.current), []);
 

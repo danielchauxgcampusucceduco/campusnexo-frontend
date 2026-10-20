@@ -87,7 +87,7 @@ export function ArchitectureView() {
             </p>
           </div>
           <button type="button" disabled={running !== null} onClick={() => void play('CLASE_EN_CURSO')} className="rounded-lg bg-night px-3.5 py-2 text-sm font-medium text-night-text disabled:opacity-60">
-            Disparar Clase en curso (AULA-301)
+            Repetir «Clase en curso» (421-A)
           </button>
         </div>
         <div className="overflow-hidden rounded-2xl bg-night">

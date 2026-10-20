@@ -1,4 +1,4 @@
-import { BookOpen, Boxes, Cctv, Hexagon, Leaf } from 'lucide-react';
+import { BookOpen, Cctv, Leaf, Map, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTwin } from '../application/TwinContext';
 import { SIMULATION_SCENARIOS } from '../domain/model';
@@ -8,23 +8,23 @@ import { Kbd, ScenarioDock } from './components/ScenarioDock';
 import { TopBar } from './components/TopBar';
 import { SCENARIO_STAGE, VIEW_KEYS, type ViewId } from './scenarioPlaybook';
 import { navigate, StageProvider, useStage } from './StageContext';
-import { ArchitectureView } from './views/ArchitectureView';
-import { DigitalTwinView } from './views/DigitalTwinView';
-import { EdgeVisionView } from './views/EdgeVisionView';
+import { CampusView } from './views/CampusView';
 import { EnergyView } from './views/EnergyView';
+import { HowItWorksView } from './views/HowItWorksView';
 import { LibraryView } from './views/LibraryView';
+import { SalonView } from './views/SalonView';
 
 const VIEWS: { id: ViewId; label: string; icon: ComponentType<{ className?: string }>; component: ComponentType }[] = [
-  { id: 'gemelo', label: 'Gemelo 2.5D', icon: Boxes, component: DigitalTwinView },
-  { id: 'camara', label: 'Cámara edge', icon: Cctv, component: EdgeVisionView },
+  { id: 'campus', label: 'Campus en vivo', icon: Map, component: CampusView },
+  { id: 'salon', label: 'Salón y cámara', icon: Cctv, component: SalonView },
   { id: 'biblioteca', label: 'Biblioteca', icon: BookOpen, component: LibraryView },
-  { id: 'arquitectura', label: 'Arquitectura', icon: Hexagon, component: ArchitectureView },
-  { id: 'energia', label: 'Energía', icon: Leaf, component: EnergyView },
+  { id: 'funciona', label: 'Cómo funciona', icon: Workflow, component: HowItWorksView },
+  { id: 'energia', label: 'Ahorro de energía', icon: Leaf, component: EnergyView },
 ];
 
 function viewFromHash(): ViewId {
   const id = location.hash.replace('#/', '') as ViewId;
-  return VIEWS.some((view) => view.id === id) ? id : 'gemelo';
+  return VIEWS.some((view) => view.id === id) ? id : 'campus';
 }
 
 function typingInto(target: EventTarget | null): boolean {
