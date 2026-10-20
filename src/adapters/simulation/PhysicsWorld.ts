@@ -1,0 +1,200 @@
+import { boxAround, polygonCentroid } from '../../domain/geometry';
+import { COMPRESSOR_ON, type CampusSpace, type DetectedObjectClass, type HvacControlState, type NormalizedPoint, type StudyZoneRoi, type TrackedDetection } from '../../domain/model';
+import { THERMAL_PARAMETERS } from '../../domain/thermal';
+
+/** Something the ceiling camera can see. Positions are normalized image coordinates. */
+export interface Agent {
+  trackId: number;
+  objectClass: DetectedObjectClass;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  /** Desk the agent belongs to (persons sitting there or belongings left on it). */
+  deskId: string | null;
+  leaving: boolean;
+  /** Phase for the small idle sway of seated people. */
+  phase: number;
+}
+
+const DOOR: NormalizedPoint = [0.03, 0.5];
+const WALK_SPEED_PER_SECOND = 0.22;
+const BOX: Record<DetectedObjectClass, [number, number]> = {
+  PERSON: [0.045, 0.075],
+  LAPTOP: [0.05, 0.035],
+  BACKPACK: [0.035, 0.045],
+  BOOK: [0.03, 0.025],
+};
+const YOLO_MISS_PROBABILITY = 0.02;
+
+/**
+ * Physical state of one room: people and objects (for the camera) plus air temperature, CO2,
+ * humidity and light. Temperature follows the same RC model as the MPC, and CO2 relaxes towards
+ * the steady state Cₑₓₜ + n·1000/A used by the Kalman mass-balance measurement.
+ */
+export class RoomPhysics {
+  agents: Agent[] = [];
+  indoorC: number;
+  outdoorC: number;
+  co2Ppm = 430;
+  humidityPct: number;
+  illuminanceLux: number;
+  cameraOnline = true;
+  private nextTrackId = 1;
+
+  constructor(readonly space: CampusSpace, outdoorC: number, readonly rois: readonly StudyZoneRoi[]) {
+    this.outdoorC = outdoorC;
+    this.indoorC = space.climateProfile === 'SEDE_TROPICAL' ? 27 : space.climateProfile === 'SEDE_ANDINA' ? 20.5 : 22.5;
+    this.humidityPct = space.climateProfile === 'SEDE_TROPICAL' ? 70 : 55;
+    this.illuminanceLux = space.type === 'BIBLIOTECA' ? 420 : 330;
+  }
+
+  people(): Agent[] {
+    return this.agents.filter((a) => a.objectClass === 'PERSON' && !a.leaving);
+  }
+
+  /** Seats in a classroom grid, or the aisle band of the library (outside every desk ROI). */
+  private freeSeat(): NormalizedPoint {
+    const taken = this.agents.filter((a) => a.objectClass === 'PERSON' && !a.leaving).map((a) => [a.targetX, a.targetY] as const);
+    const isLibrary = this.rois.length > 0;
+    const columns = isLibrary ? 12 : Math.ceil(Math.sqrt(this.space.capacity * 1.7));
+    const rows = isLibrary ? 3 : Math.ceil((this.space.capacity * 1.6) / columns);
+    for (let index = 0; index < columns * rows; index++) {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = isLibrary ? 0.04 + column * 0.078 : 0.14 + (column / Math.max(1, columns - 1)) * 0.78;
+      const y = isLibrary ? 0.13 + row * 0.07 : 0.2 + (row / Math.max(1, rows - 1)) * 0.68;
+      if (!taken.some(([tx, ty]) => Math.abs(tx - x) < 0.01 && Math.abs(ty - y) < 0.01)) {
+        return [x, y];
+      }
+    }
+    return [0.1 + Math.random() * 0.8, isLibrary ? 0.13 + Math.random() * 0.14 : 0.2 + Math.random() * 0.7];
+  }
+
+  private spawn(objectClass: DetectedObjectClass, target: NormalizedPoint, deskId: string | null, fromDoor: boolean): Agent {
+    const start = fromDoor ? DOOR : target;
+    const agent: Agent = {
+      trackId: this.nextTrackId++, objectClass, x: start[0], y: start[1], targetX: target[0], targetY: target[1],
+      deskId, leaving: false, phase: Math.random() * Math.PI * 2,
+    };
+    this.agents.push(agent);
+    return agent;
+  }
+
+  /** Adjusts the number of free-roaming people (not sitting at a library desk). */
+  setFreePeople(count: number, instant = false): void {
+    const free = this.people().filter((a) => a.deskId === null);
+    for (let i = free.length; i < count; i++) {
+      this.spawn('PERSON', this.freeSeat(), null, !instant);
+    }
+    for (let i = count; i < free.length; i++) {
+      const leaver = free[free.length - 1 - (i - count)]!;
+      if (instant) {
+        this.agents = this.agents.filter((a) => a !== leaver);
+      } else {
+        leaver.leaving = true;
+        leaver.targetX = DOOR[0];
+        leaver.targetY = DOOR[1];
+      }
+    }
+  }
+
+  deskCenter(deskId: string): NormalizedPoint {
+    const roi = this.rois.find((r) => r.zoneId === deskId);
+    if (!roi) throw new Error(`Puesto desconocido ${deskId}`);
+    return polygonCentroid(roi.polygon);
+  }
+
+  /** Places (or removes) the person of a desk; belongings stay unless cleared explicitly. */
+  setDeskPerson(deskId: string, present: boolean, instant = false): void {
+    const current = this.agents.find((a) => a.deskId === deskId && a.objectClass === 'PERSON' && !a.leaving);
+    if (present && !current) {
+      const [x, y] = this.deskCenter(deskId);
+      this.spawn('PERSON', [x - 0.02, y - 0.01], deskId, !instant);
+    } else if (!present && current) {
+      if (instant) {
+        this.agents = this.agents.filter((a) => a !== current);
+      } else {
+        current.leaving = true;
+        current.targetX = DOOR[0];
+        current.targetY = DOOR[1];
+      }
+    }
+  }
+
+  setDeskBelongings(deskId: string, classes: DetectedObjectClass[]): void {
+    this.agents = this.agents.filter((a) => !(a.deskId === deskId && a.objectClass !== 'PERSON'));
+    const [x, y] = this.deskCenter(deskId);
+    classes.forEach((objectClass, index) => this.spawn(objectClass, [x + 0.035 + index * 0.012, y + 0.035 - index * 0.02], deskId, false));
+  }
+
+  clearDesks(): void {
+    this.agents = this.agents.filter((a) => a.deskId === null);
+  }
+
+  /** Real-time animation step: people walk at a constant speed; those who reach the door disappear. */
+  animate(realSeconds: number): void {
+    const step = WALK_SPEED_PER_SECOND * realSeconds;
+    for (const agent of this.agents) {
+      const dx = agent.targetX - agent.x;
+      const dy = agent.targetY - agent.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance <= step) {
+        agent.x = agent.targetX;
+        agent.y = agent.targetY;
+      } else {
+        agent.x += (dx / distance) * step;
+        agent.y += (dy / distance) * step;
+      }
+    }
+    this.agents = this.agents.filter((a) => !(a.leaving && Math.hypot(a.x - DOOR[0], a.y - DOOR[1]) < 0.005));
+  }
+
+  /** Simulated-time physics step (minutes) under the current HVAC strategy. */
+  integrate(minutes: number, hvacState: HvacControlState, setpointC: number): void {
+    if (minutes <= 0) return;
+    const occupants = this.people().length;
+    const { timeConstantMinutes, occupantGainCPerHour, hvacRateCPerMinute } = THERMAL_PARAMETERS;
+    const drift = this.outdoorC + (this.indoorC - this.outdoorC) * Math.exp(-minutes / timeConstantMinutes)
+      + (occupantGainCPerHour * occupants * (50 / this.space.areaSqm) * minutes) / 60;
+    let temperature = drift;
+    if (COMPRESSOR_ON.has(hvacState)) {
+      const delta = setpointC - temperature;
+      temperature += Math.sign(delta) * Math.min(Math.abs(delta), hvacRateCPerMinute * minutes);
+    }
+    this.indoorC = temperature;
+
+    const steadyCo2 = 420 + (occupants * 1000) / this.space.areaSqm;
+    const tau = hvacState === 'VENTILACION_CO2_ACTIVA' ? 6 : 20;
+    this.co2Ppm += (steadyCo2 - this.co2Ppm) * (1 - Math.exp(-minutes / tau));
+    const humidityTarget = this.space.climateProfile === 'SEDE_TROPICAL' ? (hvacState === 'CONFORT_ACTIVO' ? 60 : 72) : 55;
+    this.humidityPct += (humidityTarget - this.humidityPct) * (1 - Math.exp(-minutes / 60));
+  }
+
+  /** What YOLO + ByteTrack would report now: boxes of visible agents, with occasional missed persons. */
+  detections(withNoise: boolean, swayTime: number): TrackedDetection[] {
+    if (!this.cameraOnline) return [];
+    const result: TrackedDetection[] = [];
+    for (const agent of this.agents) {
+      if (withNoise && agent.objectClass === 'PERSON' && Math.random() < YOLO_MISS_PROBABILITY) continue;
+      const [width, height] = BOX[agent.objectClass];
+      const seated = agent.objectClass === 'PERSON' && Math.hypot(agent.targetX - agent.x, agent.targetY - agent.y) < 0.002;
+      const sway = seated ? Math.sin(swayTime / 900 + agent.phase) * 0.0025 : 0;
+      result.push({
+        trackId: agent.trackId,
+        objectClass: agent.objectClass,
+        confidence: agent.objectClass === 'PERSON' ? 0.86 + 0.1 * Math.abs(Math.sin(agent.phase + swayTime / 4000)) : 0.74 + 0.08 * Math.abs(Math.cos(agent.phase)),
+        box: boxAround([agent.x + sway, agent.y], width, height),
+      });
+    }
+    return result;
+  }
+
+  wifiDevices(): number {
+    return Math.round(this.people().length * 1.1);
+  }
+
+  activePowerKw(hvacPowerShare: number, ratedKw: number): number {
+    return Math.round((0.35 + this.people().length * 0.04 + hvacPowerShare * ratedKw) * 100) / 100;
+  }
+}
