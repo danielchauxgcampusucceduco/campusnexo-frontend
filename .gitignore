@@ -2,3 +2,5 @@ node_modules
 dist/
 .env
 *.local
+# Compiled output of tsc; the sources are TypeScript
+src/**/*.js
