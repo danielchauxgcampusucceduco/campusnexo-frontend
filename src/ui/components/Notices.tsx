@@ -4,7 +4,7 @@ import { useTwin } from '../../application/TwinContext';
 export function Notices() {
   const { notices } = useTwin();
   return (
-    <div className="pointer-events-none fixed bottom-20 right-4 z-50 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
+    <div className="pointer-events-none fixed bottom-16 right-4 md:bottom-4 z-50 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
       {notices.map((notice) => (
         <div
           key={notice.id}

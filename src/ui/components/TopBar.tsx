@@ -18,7 +18,7 @@ export function TopBar() {
   const backend = gateway.mode === 'backend';
 
   return (
-    <header className="sticky top-0 z-40 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule bg-paper/95 px-4 py-2.5 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-40 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-rule bg-paper/95 min-h-14 px-4 py-2 backdrop-blur md:px-6">
       <div className="flex items-center gap-2.5">
         <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden>
           <rect width="32" height="32" rx="7" fill="var(--color-night)" />
@@ -27,11 +27,11 @@ export function TopBar() {
         </svg>
         <div className="leading-tight">
           <p className="lettering text-[15px] font-semibold">CampusNexo</p>
-          <p className="text-[11px] text-ink-soft">Gemelo digital del campus</p>
+          <p className="hidden text-xs text-ink-soft 2xl:block">Gemelo digital del campus</p>
         </div>
       </div>
 
-      <div role="group" aria-label="Fuente de datos" className="flex rounded-lg border border-rule bg-sheet p-0.5 text-xs">
+      <div role="group" aria-label="Fuente de datos" className="flex rounded-lg border border-rule bg-sheet p-0.5 text-sm">
         <button
           type="button"
           disabled={switching}
@@ -52,16 +52,16 @@ export function TopBar() {
         </button>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-ink-soft">
+      <div className="flex items-center gap-2 text-sm text-ink-soft" title={backend ? connectionCopy[snapshot.connection] : 'Motor físico en el navegador'}>
         <span className={`h-2 w-2 rounded-full ${snapshot.connection === 'live' ? 'bg-st-libre' : 'bg-st-subutilizado'}`} />
-        {backend ? connectionCopy[snapshot.connection] : 'Motor físico en el navegador'}
+        <span className="sr-only 2xl:not-sr-only">{backend ? connectionCopy[snapshot.connection] : 'Motor físico en el navegador'}</span>
       </div>
 
-      <div className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-1 text-xs">
-        <span className="flex items-center gap-1.5" title="Potencia HVAC actual frente a la línea base convencional">
-          <Zap className="h-3.5 w-3.5 text-hv-ahorro" />
+      <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+        <span className="flex items-center gap-1.5" title={`Potencia HVAC actual frente a ${formatNumber(power.baselineKw)} kW del horario convencional`}>
+          <Zap className="h-4 w-4 text-hv-ahorro-ink" />
           <span className="font-semibold">{formatNumber(power.actualKw)} kW</span>
-          <span className="text-ink-soft">de {formatNumber(power.baselineKw)} kW base</span>
+          <span className="hidden text-ink-soft 2xl:inline">de {formatNumber(power.baselineKw)} kW base</span>
         </span>
         {snapshot.savings && (
           <span className="text-ink-soft" title="Ahorro estimado acumulado">
@@ -69,11 +69,11 @@ export function TopBar() {
           </span>
         )}
         <span className="flex items-center gap-1.5 tabular-nums">
-          <span className="text-ink-soft">{backend ? 'Hora' : 'Hora simulada'}</span>
+          <span className="text-ink-soft">{backend ? 'Hora' : 'Simulada'}</span>
           <span className="font-semibold">{clock}</span>
         </span>
         {gateway.capabilities.timeScale && (
-          <label className="flex items-center gap-1.5 text-ink-soft">
+          <label className="flex items-center gap-1.5 text-ink-soft" title="Velocidad de la simulación">
             <Gauge className="h-3.5 w-3.5" />
             <span className="sr-only">Velocidad de la simulación</span>
             <select
@@ -82,7 +82,7 @@ export function TopBar() {
               onChange={(event) => gateway.setTimeScale(Number(event.target.value))}
             >
               {SPEEDS.map((speed) => (
-                <option key={speed} value={speed}>{speed === 1 ? 'Tiempo real' : `${speed}× más rápido`}</option>
+                <option key={speed} value={speed}>{speed === 1 ? 'Tiempo real' : `${speed}×`}</option>
               ))}
             </select>
           </label>

@@ -1,9 +1,10 @@
 import { CameraOff, EyeOff, ScanLine } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTwin } from '../../application/TwinContext';
 import { CameraCanvas } from '../components/CameraCanvas';
 import { KalmanPanel } from '../components/KalmanPanel';
 import { StatusBadge } from '../components/StatusBadge';
+import { useStage } from '../StageContext';
 import { DESK_META, OBJECT_META } from '../theme';
 
 function Switch({ checked, onChange, label, icon, disabled, title }: { checked: boolean; onChange: (value: boolean) => void; label: string; icon: React.ReactNode; disabled?: boolean; title?: string }) {
@@ -21,8 +22,13 @@ function Switch({ checked, onChange, label, icon, disabled, title }: { checked: 
 }
 
 export function EdgeVisionView() {
-  const { gateway, snapshot, twin, runScenario } = useTwin();
-  const [spaceId, setSpaceId] = useState('BIB-PISO-2');
+  const { gateway, snapshot, twin } = useTwin();
+  const { focus, play } = useStage();
+  const [spaceId, setSpaceId] = useState(focus?.spaceId ?? 'BIB-PISO-2');
+  // A scenario on another space switches the camera to it, so its effect is on screen.
+  useEffect(() => {
+    if (focus) setSpaceId(focus.spaceId);
+  }, [focus]);
   const [privacy, setPrivacy] = useState(true);
   const [boxes, setBoxes] = useState(true);
   const current = twin(spaceId);
@@ -33,16 +39,16 @@ export function EdgeVisionView() {
 
   const toggleCamera = (failed: boolean) => {
     if (gateway.capabilities.cameraControl) gateway.setCameraOnline(spaceId, !failed);
-    else if (failed) void runScenario('FALLO_CAMARA');
+    else if (failed) void play('FALLO_CAMARA');
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+    <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_420px]">
       <section aria-labelledby="camera-title" className="min-w-0">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 id="camera-title" className="lettering text-2xl font-semibold">Visión edge en vivo</h1>
-            <p className="mt-1 max-w-[62ch] text-sm text-ink-soft">
+            <h1 id="camera-title" tabIndex={-1} className="lettering text-2xl font-semibold">Visión edge en vivo</h1>
+            <p className="view-intro mt-1 max-w-[62ch] text-sm text-ink-soft">
               Cada cámara cuenta personas y objetos en el propio dispositivo y solo publica cajas y conteos; ninguna imagen sale del aula.
             </p>
           </div>
@@ -69,16 +75,16 @@ export function EdgeVisionView() {
           />
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-ink-soft">
+        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
           {Object.entries(OBJECT_META).map(([key, meta]) => (
             <span key={key} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: meta.color }} />{meta.label} {counts[key] ?? 0}</span>
           ))}
           {rois.length > 0 && Object.values(DESK_META).map((meta) => (
-            <span key={meta.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border" style={{ borderColor: meta.color, background: `${meta.color}33` }} />{meta.label}</span>
+            <span key={meta.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border" style={{ borderColor: meta.color, background: `${meta.color}33` }} /><span style={{ color: meta.ink }}>{meta.label}</span></span>
           ))}
         </div>
         {frame?.origin === 'reconstruido-desde-gemelo' && (
-          <p className="mt-3 text-xs text-ink-soft">Con el backend la escena se reconstruye desde el gemelo (puestos y ocupación), porque el edge no envía imágenes ni cajas al dashboard.</p>
+          <p className="mt-3 text-sm text-ink-soft">Con el backend la escena se reconstruye desde el gemelo (puestos y ocupación), porque el edge no envía imágenes ni cajas al dashboard.</p>
         )}
       </section>
 
@@ -86,7 +92,7 @@ export function EdgeVisionView() {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 id="kalman-title" className="lettering text-lg font-semibold">Filtro de Kalman</h2>
-            <p className="text-xs text-ink-soft">OccupancyKalmanDomainService sobre {space.name}</p>
+            <p className="text-sm text-ink-soft">OccupancyKalmanDomainService sobre {space.name}</p>
           </div>
           <StatusBadge status={state.status} size="sm" />
         </div>
