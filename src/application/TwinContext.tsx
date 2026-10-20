@@ -46,7 +46,7 @@ export function TwinProvider({ children, fallback }: { children: ReactNode; fall
       active = created;
       setGateway(created);
       if (created.mode === 'simulation' && config.preference !== 'simulation') {
-        notify('info', 'El backend no respondió; la demo corre con la simulación física en el navegador.');
+        notify('info', 'El servidor no respondió; la demo sigue con la simulación en este navegador.');
       }
     }).catch((error: unknown) => notify('error', error instanceof Error ? error.message : String(error)));
     return () => {

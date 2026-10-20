@@ -179,7 +179,7 @@ function drawRoi(ctx: CanvasRenderingContext2D, zone: StudyZoneRoi, desk: DeskOb
   const top = Math.min(...ys);
   ctx.fillStyle = color;
   ctx.font = `600 ${12 * s}px 'Archivo Variable', sans-serif`;
-  ctx.fillText(zone.label, left + 8 * s, top + 17 * s);
+  ctx.fillText(zone.label, left + 8 * s, Math.max(...ys) - 8 * s);
 
   if (desk?.unattendedSince && state === 'ALERTA_ACAPARAMIENTO') {
     const elapsedMinutes = Math.max(0, (now - Date.parse(desk.unattendedSince)) / 60_000);
@@ -308,7 +308,7 @@ function drawNoSignal(ctx: CanvasRenderingContext2D, noise: HTMLCanvasElement, W
 function drawHud(ctx: CanvasRenderingContext2D, W: number, s: number, spaceId: string, online: boolean, detections: TrackedDetection[], fps: number, blur: boolean) {
   const people = detections.filter((d) => d.objectClass === 'PERSON').length;
   const objects = detections.length - people;
-  const title = `${spaceId} · YOLO11n + ByteTrack`;
+  const title = `${spaceId} · cámara con IA`;
   const counts = online ? `${people} personas, ${objects} objetos` : 'cámara caída';
   ctx.font = `600 ${13 * s}px 'Archivo Variable', sans-serif`;
   const titleWidth = ctx.measureText(title).width;

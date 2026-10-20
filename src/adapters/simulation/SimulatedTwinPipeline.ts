@@ -1,11 +1,13 @@
 import { evaluateDeskGhosting } from '../../domain/desks';
 import { kalmanUpdate, uninformedBelief, type OccupancyBelief } from '../../domain/kalman';
 import { savedKwh } from '../../domain/kpis';
+import { classifyRoom, wastesEnergy } from '../../domain/room';
 import {
   COMPRESSOR_ON,
   type ArchitectureTrace,
   type CampusSpace,
   type DeskObservation,
+  type EnvironmentReading,
   type HexagonalLayer,
   type HvacControlState,
   type SpaceTwinState,
@@ -28,11 +30,23 @@ export interface TwinRecord {
   initialized: boolean;
 }
 
+/** Java: EquipmentCommand, the shutdown order for the room Arduino. */
+export interface EquipmentCommand {
+  spaceId: string;
+  lightsOff: boolean;
+  suspendDevices: boolean;
+  reason: string;
+}
+
 export interface ProcessResult {
   record: TwinRecord;
   trace: ArchitectureTrace;
   commandSent: boolean;
+  equipmentCommand: EquipmentCommand | null;
 }
+
+/** Same default as app.twin.status.equipment-idle-shutdown. */
+export const EQUIPMENT_IDLE_SHUTDOWN_MINUTES = 5;
 
 /** Records the hops of one event, with the same component names as the Java backend. */
 class TraceBuilder {
@@ -90,6 +104,13 @@ export function initialRecord(space: CampusSpace, outdoorC: number, now: number)
       desks: [],
       kalman: null,
       thermal: null,
+      condition: 'LIBRE',
+      lightsOn: false,
+      illuminanceLux: 0,
+      devicesOn: 0,
+      devicesTotal: space.computers,
+      emptySince: iso(now),
+      equipmentShutdownAt: null,
     },
   };
 }
@@ -108,12 +129,15 @@ export function processFrame(input: {
   space: CampusSpace;
   previous: TwinRecord;
   snapshot: TelemetrySnapshot | null;
+  /** Reading of the room Arduino; when present the frame is an "ambiente" message. */
+  environment?: EnvironmentReading | null;
   rois: readonly StudyZoneRoi[];
   reservations: readonly SimReservation[];
   now: number;
   trigger: string;
 }): ProcessResult {
   const { space, previous, snapshot, rois, reservations, now, trigger } = input;
+  const environment = input.environment ?? null;
   const trace = new TraceBuilder(trigger, space.spaceId, now);
   const prev = previous.state;
 
@@ -142,7 +166,8 @@ export function processFrame(input: {
       const byZone = new Map(prev.desks.map((desk) => [desk.zoneId, desk]));
       desks = rois.map((roi) => evaluateDeskGhosting(roi, snapshot.detections, byZone.get(roi.zoneId), now));
       const held = desks.filter((desk) => desk.unattendedSince !== null).length;
-      trace.step('DOMAIN_SERVICE', 'StudyZoneRoi.evaluateDeskGhosting', `${desks.length} puestos evaluados por ray casting, ${held} con pertenencias sin estudiante`);
+      const seated = desks.filter((desk) => desk.peopleInside > 0).length;
+      trace.step('DOMAIN_SERVICE', 'StudyZoneRoi.evaluateDeskGhosting', `${desks.length} puestos evaluados por ray casting: ${seated} ocupados, ${held} con pertenencias sin estudiante`);
     }
     sensors = {
       indoor: snapshot.indoorTemperatureC,
@@ -150,6 +175,17 @@ export function processFrame(input: {
       co2: snapshot.co2Ppm,
       humidity: snapshot.humidityPct,
       cameraOnline: snapshot.cameraOnline,
+    };
+  } else if (environment) {
+    trace
+      .step('INBOUND_ADAPTER', trigger, `${environment.temperatureC.toFixed(1)} °C, ${Math.round(environment.humidityPct)} % HR, luces ${environment.lightsOn ? 'encendidas' : 'apagadas'}, ${environment.devicesOn} equipos encendidos`)
+      .step('INPUT_PORT', 'ProcessEnvironmentReadingUseCase', 'processEnvironment(EnvironmentReading)')
+      .step('USE_CASE', 'ProcessSpaceTelemetryService', 'Actualiza el ambiente y recalcula el salón');
+    sensors = {
+      ...sensors,
+      indoor: environment.temperatureC,
+      co2: environment.co2Ppm ?? sensors.co2,
+      humidity: environment.humidityPct,
     };
   } else {
     trace
@@ -190,6 +226,30 @@ export function processFrame(input: {
   const saved = previous.initialized ? prev.energySavedKwh + savedKwh(prev.hvacState, previousUpdate, now, space.areaSqm) : prev.energySavedKwh;
   const strategyChanged = hvacState !== prev.hvacState || !previous.initialized;
 
+  let equipment = environment
+    ? { lightsOn: environment.lightsOn, illuminanceLux: environment.illuminanceLux, devicesOn: Math.min(environment.devicesOn, space.computers) }
+    : { lightsOn: prev.lightsOn, illuminanceLux: prev.illuminanceLux, devicesOn: prev.devicesOn };
+  const emptySince = people > 0 ? null : prev.emptySince ?? iso(now);
+  const classify = () => classifyRoom({ maintenance: prev.maintenance, people, capacity: space.capacity, lightsOn: equipment.lightsOn, devicesOn: equipment.devicesOn });
+  let condition = classify();
+  let equipmentCommand: EquipmentCommand | null = null;
+  let shutdownAt = prev.equipmentShutdownAt;
+  const idleMinutes = emptySince ? (now - Date.parse(emptySince)) / 60_000 : 0;
+  const lastShutdown = shutdownAt ? Date.parse(shutdownAt) : null;
+  if (wastesEnergy(condition) && idleMinutes >= EQUIPMENT_IDLE_SHUTDOWN_MINUTES
+    && (lastShutdown === null || lastShutdown < Date.parse(emptySince!) || (now - lastShutdown) / 60_000 >= EQUIPMENT_IDLE_SHUTDOWN_MINUTES)) {
+    equipmentCommand = {
+      spaceId: space.spaceId,
+      lightsOff: equipment.lightsOn,
+      suspendDevices: equipment.devicesOn > 0,
+      reason: `Salón vacío hace ${Math.floor(idleMinutes)} min con ${describe(equipment.lightsOn, equipment.devicesOn, space.computers)}`,
+    };
+    equipment = { ...equipment, lightsOn: false, devicesOn: 0 };
+    shutdownAt = iso(now);
+    condition = classify();
+  }
+  trace.step('DOMAIN_SERVICE', 'RoomConditionPolicy', `${people}/${space.capacity} personas, ${describe(equipment.lightsOn, equipment.devicesOn, space.computers)} → ${condition}`);
+
   const state: SpaceTwinState = {
     ...prev,
     status,
@@ -208,6 +268,13 @@ export function processFrame(input: {
     desks,
     kalman,
     thermal,
+    condition,
+    lightsOn: equipment.lightsOn,
+    illuminanceLux: equipment.illuminanceLux,
+    devicesOn: equipment.devicesOn,
+    devicesTotal: space.computers,
+    emptySince,
+    equipmentShutdownAt: shutdownAt,
   };
 
   if (snapshot) {
@@ -218,7 +285,15 @@ export function processFrame(input: {
     trace.outbound('HvacActuatorCommandPort.send', 'SimulatedEsp32Actuator',
       `${prev.hvacState} → ${hvacState}${COMPRESSOR_ON.has(hvacState) ? ' (compresor encendido)' : ''}`);
   }
+  if (equipmentCommand) {
+    const actions = [equipmentCommand.lightsOff ? 'apagar luces' : null, equipmentCommand.suspendDevices ? 'suspender equipos' : null].filter(Boolean).join(' y ');
+    trace.outbound('RoomEquipmentCommandPort.send', 'SimulatedArduinoRelay', actions);
+  }
   trace.outbound('RealtimeDashboardNotifierPort.publishTwinUpdate', 'InMemoryDashboardNotifier', 'Gemelo actualizado');
 
-  return { record: { state, belief, initialized: true }, trace: trace.finish(), commandSent: strategyChanged };
+  return { record: { state, belief, initialized: true }, trace: trace.finish(), commandSent: strategyChanged, equipmentCommand };
+}
+
+function describe(lightsOn: boolean, devicesOn: number, devicesTotal: number): string {
+  return `luces ${lightsOn ? 'encendidas' : 'apagadas'}, ${devicesOn}/${devicesTotal} equipos encendidos`;
 }

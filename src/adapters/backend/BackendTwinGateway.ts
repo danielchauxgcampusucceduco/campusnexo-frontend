@@ -32,7 +32,7 @@ export class BackendError extends Error {
  */
 export class BackendTwinGateway implements TwinGateway {
   readonly mode = 'backend' as const;
-  readonly capabilities: GatewayCapabilities = { checkIn: false, cameraControl: false, timeScale: false };
+  readonly capabilities: GatewayCapabilities = { checkIn: false, cameraControl: false, timeScale: false, lightControl: false };
 
   private twins: TwinSpace[] = [];
   private savings: SavingsReport | null = null;
@@ -113,6 +113,11 @@ export class BackendTwinGateway implements TwinGateway {
     await this.refreshSavings();
     this.publish();
     return response.trace;
+  }
+
+  /** The backend only receives the room state from its Arduino; the dashboard cannot switch the lights. */
+  setLights(): void {
+    // Intentionally empty: capability lightControl is false.
   }
 
   setCameraOnline(): void {

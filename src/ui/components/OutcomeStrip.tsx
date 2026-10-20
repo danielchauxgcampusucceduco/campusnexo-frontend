@@ -38,7 +38,7 @@ export function OutcomeStrip() {
         {outcome.spaceId !== '*' && <p className="condensed text-sm text-ink-soft">{outcome.spaceId}</p>}
         <div className="ml-auto flex items-center gap-1">
           {outcome.traceId && (
-            <a href="#/arquitectura" className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-st-optimo-ink hover:bg-white">
+            <a href="#/funciona" className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-st-optimo-ink hover:bg-white">
               <Route className="h-4 w-4" /> Ver recorrido
             </a>
           )}
