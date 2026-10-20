@@ -1,19 +1,24 @@
-import { Backpack, BookOpen, Laptop, User } from 'lucide-react';
+import { Backpack, BookOpen, CircleCheck, Laptop, User } from 'lucide-react';
 import { DESK_ABANDON_MINUTES } from '../../domain/desks';
 import type { DeskObservation, StudyZoneRoi } from '../../domain/model';
 import { DESK_META } from '../theme';
 import { countdown } from './useLiveNow';
 
-function Ring({ fraction, color, label }: { fraction: number; color: string; label: string }) {
+function Ring({ fraction, color, label, remainingMs }: { fraction: number; color: string; label: string; remainingMs: number }) {
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
+  const minutes = Math.ceil(remainingMs / 60_000);
   return (
-    <svg viewBox="0 0 64 64" className="h-16 w-16" role="img" aria-label={`Quedan ${label} para liberar el puesto`}>
+    <>
+    {/* Announced once per minute, not on every tick. */}
+    <span className="sr-only" aria-live="polite">{minutes === 1 ? 'Queda menos de 1 minuto' : `Quedan ${minutes} minutos`} para liberar el puesto</span>
+    <svg viewBox="0 0 64 64" className="h-16 w-16" aria-hidden>
       <circle cx="32" cy="32" r={radius} fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="5" />
       <circle cx="32" cy="32" r={radius} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round"
         strokeDasharray={circumference} strokeDashoffset={circumference * (1 - fraction)} transform="rotate(-90 32 32)" />
       <text x="32" y="36.5" textAnchor="middle" fontSize="13" fontWeight={700} fill="currentColor">{label}</text>
     </svg>
+    </>
   );
 }
 
@@ -32,21 +37,22 @@ export function DeskMonitor({ rois, desks, now }: { rois: StudyZoneRoi[]; desks:
             style={{ borderColor: `color-mix(in oklab, ${meta.color} 55%, var(--color-rule))`, boxShadow: state === 'LIBERADO_POR_ABANDONO' ? `inset 0 0 0 2px color-mix(in oklab, ${meta.color} 30%, transparent)` : undefined }}>
             <div className="flex items-start justify-between">
               <span className="lettering text-sm font-semibold">{roi.label}</span>
-              <span className="text-[11px] text-ink-soft">{roi.zoneId}</span>
+              <span className="condensed text-xs text-ink-soft">{roi.zoneId}</span>
             </div>
-            <div className="flex flex-1 items-center justify-center py-1" style={{ color: meta.color }}>
+            <div className="flex flex-1 items-center justify-center py-1" style={{ color: meta.ink }}>
               {timer ? (
-                <Ring fraction={timer.fraction} color={meta.color} label={timer.label} />
+                <Ring fraction={timer.fraction} color={meta.color} label={timer.label} remainingMs={timer.remainingMs} />
               ) : (
                 <div className="flex items-center gap-1.5">
                   {desk && desk.peopleInside > 0 && <User className="h-6 w-6" />}
-                  {desk && desk.belongingsInside > 0 && (state === 'LIBERADO_POR_ABANDONO' ? <Backpack className="h-6 w-6" /> : <Laptop className="h-5 w-5 opacity-70" />)}
+                  {state === 'LIBERADO_POR_ABANDONO' && <CircleCheck className="h-6 w-6" />}
+                  {desk && desk.belongingsInside > 0 && (state === 'LIBERADO_POR_ABANDONO' ? <Backpack className="h-6 w-6 opacity-70" /> : <Laptop className="h-5 w-5 opacity-70" />)}
                   {(!desk || (desk.peopleInside === 0 && desk.belongingsInside === 0)) && <BookOpen className="h-6 w-6 opacity-60" />}
                 </div>
               )}
             </div>
-            <p className="text-xs font-medium" style={{ color: meta.color }}>{meta.label}</p>
-            <p className="text-[11px] text-ink-soft">
+            <p className="text-sm font-medium" style={{ color: meta.ink }}>{meta.label}</p>
+            <p className="text-xs text-ink-soft">
               {state === 'ALERTA_ACAPARAMIENTO' && desk ? `${desk.belongingsInside} ${desk.belongingsInside === 1 ? 'objeto' : 'objetos'} sin estudiante` : state === 'LIBERADO_POR_ABANDONO' ? 'Disponible para otro estudiante' : meta.hint}
             </p>
           </li>

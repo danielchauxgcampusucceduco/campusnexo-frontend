@@ -4,13 +4,15 @@ import { useEffect, useState } from 'react';
 import { useTwin } from '../../application/TwinContext';
 import { DESK_ABANDON_MINUTES } from '../../domain/desks';
 import type { TwinSpace } from '../../domain/model';
+import { useStage } from '../StageContext';
 import { countdown } from './useLiveNow';
 
 type Screen = { kind: 'home' } | { kind: 'qr'; zoneId: string } | { kind: 'done'; zoneId: string };
 
 /** Mockup of the student app: free desks, QR check-in and pop-up study rooms during exams. */
 export function StudentPhone({ library, now }: { library: TwinSpace; now: number }) {
-  const { gateway, snapshot, runScenario, notify } = useTwin();
+  const { gateway, snapshot, notify } = useTwin();
+  const { play } = useStage();
   const [tab, setTab] = useState<'puestos' | 'parciales'>('puestos');
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   const [qr, setQr] = useState('');
@@ -57,7 +59,7 @@ export function StudentPhone({ library, now }: { library: TwinSpace; now: number
           <GraduationCap className="h-5 w-5 text-st-optimo" />
           <div className="leading-tight">
             <p className="text-[13px] font-semibold">CampusNexo Estudiante</p>
-            <p className="text-[11px] text-ink-soft">{library.space.name}</p>
+            <p className="text-xs text-ink-soft">{library.space.name}</p>
           </div>
         </header>
 
@@ -83,7 +85,7 @@ export function StudentPhone({ library, now }: { library: TwinSpace; now: number
               >
                 Hacer check-in
               </button>
-              {!gateway.capabilities.checkIn && <p className="text-[11px] text-ink-soft">El check-in real necesita la cuenta institucional; pruébalo en el modo de simulación.</p>}
+              {!gateway.capabilities.checkIn && <p className="text-xs text-ink-soft">El check-in real necesita la cuenta institucional; pruébalo en el modo de simulación.</p>}
             </div>
           )}
 
@@ -92,7 +94,7 @@ export function StudentPhone({ library, now }: { library: TwinSpace; now: number
               <CheckCircle2 className="h-14 w-14 text-st-libre" />
               <p className="lettering text-lg font-semibold">Check-in hecho</p>
               <p className="text-[12px] text-ink-soft">La {label(screen.zoneId)} quedó a tu nombre. Si te levantas más de {DESK_ABANDON_MINUTES} min, se libera para otro estudiante.</p>
-              <button type="button" onClick={() => setScreen({ kind: 'home' })} className="mt-2 text-[12px] font-medium text-st-optimo">Volver al inicio</button>
+              <button type="button" onClick={() => setScreen({ kind: 'home' })} className="mt-2 text-[12px] font-medium text-st-optimo-ink">Volver al inicio</button>
             </div>
           )}
 
@@ -118,7 +120,7 @@ export function StudentPhone({ library, now }: { library: TwinSpace; now: number
                           <MapPin className="h-4 w-4 text-st-libre" />
                           <span className="flex-1">
                             <span className="font-medium">{roi.label}</span>
-                            {deskState.get(roi.zoneId)?.state === 'LIBERADO_POR_ABANDONO' && <span className="block text-[11px] text-ink-soft">Liberada por abandono</span>}
+                            {deskState.get(roi.zoneId)?.state === 'LIBERADO_POR_ABANDONO' && <span className="block text-xs text-ink-soft">Liberada por abandono</span>}
                           </span>
                           <QrCode className="h-4 w-4 text-ink-soft" />
                         </button>
@@ -134,16 +136,16 @@ export function StudentPhone({ library, now }: { library: TwinSpace; now: number
                       {popups.map((room) => (
                         <li key={room.space.spaceId} className="rounded-xl border border-st-popup/40 bg-white px-3 py-2.5 text-[13px]">
                           <p className="font-medium">{room.space.name}</p>
-                          <p className="text-[11px] text-ink-soft">{room.space.buildingName}, {room.space.city}</p>
-                          <p className="mt-1 text-[12px] text-st-popup">{Math.max(0, room.space.capacity - room.state.occupancy)} cupos de estudio libres</p>
+                          <p className="text-xs text-ink-soft">{room.space.buildingName}, {room.space.city}</p>
+                          <p className="mt-1 text-[12px] font-medium text-st-popup-ink">{Math.max(0, room.space.capacity - room.state.occupancy)} cupos de estudio libres</p>
                         </li>
                       ))}
                     </ul>
                   ) : (
                     <p className="rounded-xl bg-white px-3 py-3 text-[12px] text-ink-soft">Todavía no hay aulas abiertas como sala de estudio.</p>
                   )}
-                  <button type="button" onClick={() => void runScenario('POPUP_PARCIALES')}
-                    className="mt-3 w-full rounded-xl border border-st-popup/50 py-2 text-[12px] font-medium text-st-popup">
+                  <button type="button" onClick={() => void play('POPUP_PARCIALES')}
+                    className="mt-3 w-full rounded-xl border border-st-popup/50 py-2 text-[12px] font-medium text-st-popup-ink">
                     Abrir aula pop-up (demo de coordinación)
                   </button>
                 </>

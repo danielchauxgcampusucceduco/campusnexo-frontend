@@ -149,7 +149,7 @@ function drawFloor(ctx: CanvasRenderingContext2D, W: number, H: number, s: numbe
   ctx.fillText('Acceso', 18 * s, H * 0.5 + 4 * s);
   if (library) {
     ctx.fillStyle = 'rgba(207,224,220,0.32)';
-    ctx.fillText('Pasillo de circulación', W * 0.42, H * 0.31);
+    ctx.fillText('Pasillo de circulación', W * 0.42, H * 0.335);
   } else {
     ctx.strokeStyle = 'rgba(207,224,220,0.22)';
     ctx.lineWidth = 2 * s;
@@ -308,19 +308,26 @@ function drawNoSignal(ctx: CanvasRenderingContext2D, noise: HTMLCanvasElement, W
 function drawHud(ctx: CanvasRenderingContext2D, W: number, s: number, spaceId: string, online: boolean, detections: TrackedDetection[], fps: number, blur: boolean) {
   const people = detections.filter((d) => d.objectClass === 'PERSON').length;
   const objects = detections.length - people;
-  ctx.fillStyle = 'rgba(15,29,36,0.78)';
-  ctx.fillRect(14 * s, 14 * s, 330 * s, 30 * s);
+  const title = `${spaceId} · YOLO11n + ByteTrack`;
+  const counts = online ? `${people} personas, ${objects} objetos` : 'cámara caída';
+  ctx.font = `600 ${13 * s}px 'Archivo Variable', sans-serif`;
+  const titleWidth = ctx.measureText(title).width;
+  ctx.font = `${13 * s}px 'Archivo Variable', sans-serif`;
+  const countsWidth = ctx.measureText(counts).width;
+  ctx.fillStyle = 'rgba(15,29,36,0.82)';
+  ctx.fillRect(14 * s, 14 * s, 44 * s + titleWidth + countsWidth, 32 * s);
   ctx.fillStyle = online ? '#5fd0bf' : '#e0664f';
   ctx.beginPath();
-  ctx.arc(28 * s, 29 * s, 4.5 * s, 0, Math.PI * 2);
+  ctx.arc(29 * s, 30 * s, 5 * s, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#cfe0dc';
-  ctx.font = `600 ${11.5 * s}px 'Archivo Variable', sans-serif`;
-  ctx.fillText(`${spaceId}  YOLO11n + ByteTrack`, 40 * s, 33 * s);
-  ctx.font = `${11 * s}px 'Archivo Variable', sans-serif`;
-  ctx.fillText(online ? `${people} personas  ${objects} objetos` : 'cámara caída', 228 * s, 33 * s);
+  ctx.fillStyle = '#e8f2ef';
+  ctx.font = `600 ${13 * s}px 'Archivo Variable', sans-serif`;
+  ctx.fillText(title, 42 * s, 35 * s);
+  ctx.fillStyle = online ? '#cfe0dc' : '#f6a47f';
+  ctx.font = `${13 * s}px 'Archivo Variable', sans-serif`;
+  ctx.fillText(counts, 42 * s + titleWidth + 14 * s, 35 * s);
   ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(207,224,220,0.7)';
-  ctx.fillText(`${fps} FPS${blur ? '  privacidad activa' : ''}`, W - 18 * s, 31 * s);
+  ctx.fillStyle = 'rgba(207,224,220,0.8)';
+  ctx.fillText(`${fps} FPS${blur ? ', privacidad activa' : ''}`, W - 18 * s, 34 * s);
   ctx.textAlign = 'left';
 }

@@ -2,10 +2,13 @@ import { useTwin } from '../../application/TwinContext';
 import { DeskMonitor } from '../components/DeskMonitor';
 import { StatusBadge } from '../components/StatusBadge';
 import { StudentPhone } from '../components/StudentPhone';
+import { DESK_META } from '../theme';
 import { useLiveNow } from '../components/useLiveNow';
+import { useStage } from '../StageContext';
 
 export function LibraryView() {
-  const { gateway, snapshot, twin, runScenario } = useTwin();
+  const { gateway, snapshot, twin } = useTwin();
+  const { play, running } = useStage();
   const now = useLiveNow(snapshot.now, gateway.timeScale());
   const library = twin('BIB-PISO-2');
   if (!library) return null;
@@ -17,31 +20,33 @@ export function LibraryView() {
   return (
     <div className="flex flex-col gap-8 xl:flex-row">
       <section aria-labelledby="library-title" className="min-w-0 flex-1">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div className="mb-5">
           <div>
-            <h1 id="library-title" className="lettering text-2xl font-semibold">Monitor anti-acaparamiento</h1>
-            <p className="mt-1 max-w-[64ch] text-sm text-ink-soft">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 id="library-title" tabIndex={-1} className="lettering text-2xl font-semibold">Monitor anti-acaparamiento</h1>
+              <StatusBadge status={library.state.status} />
+            </div>
+            <p className="view-intro mt-1 max-w-[64ch] text-sm text-ink-soft">
               Si en una mesa hay pertenencias pero ningún estudiante, empieza a correr un cronómetro de 15 minutos. Al terminar, la mesa se libera y aparece como disponible en la app.
             </p>
           </div>
-          <StatusBadge status={library.state.status} />
         </div>
 
         <dl className="mb-6 grid grid-cols-2 gap-x-8 gap-y-4 border-y border-rule py-4 sm:grid-cols-4">
-          <div><dt className="text-xs text-ink-soft">Personas en el piso</dt><dd className="lettering text-3xl font-semibold tabular-nums">{library.state.occupancy}<span className="text-base font-normal text-ink-soft"> / {library.space.capacity}</span></dd></div>
-          <div><dt className="text-xs text-ink-soft">Mesas verificadas</dt><dd className="lettering text-3xl font-semibold tabular-nums">{verified}</dd></div>
-          <div><dt className="text-xs text-ink-soft">Con cronómetro activo</dt><dd className="lettering text-3xl font-semibold tabular-nums text-[#b37f15]">{alerts}</dd></div>
-          <div><dt className="text-xs text-ink-soft">Liberadas por abandono</dt><dd className="lettering text-3xl font-semibold tabular-nums text-st-sobrecupo">{released}</dd></div>
+          <div><dt className="text-sm text-ink-soft">Personas en el piso</dt><dd className="lettering text-3xl font-semibold tabular-nums">{library.state.occupancy}<span className="text-base font-normal text-ink-soft"> / {library.space.capacity}</span></dd></div>
+          <div><dt className="text-sm text-ink-soft">Mesas verificadas</dt><dd className="lettering text-3xl font-semibold tabular-nums">{verified}</dd></div>
+          <div><dt className="text-sm text-ink-soft">Con cronómetro activo</dt><dd className="lettering text-3xl font-semibold tabular-nums text-st-subutilizado-ink">{alerts}</dd></div>
+          <div><dt className="text-sm text-ink-soft">Liberadas por abandono</dt><dd className="lettering text-3xl font-semibold tabular-nums" style={{ color: DESK_META.LIBERADO_POR_ABANDONO.ink }}>{released}</dd></div>
         </dl>
 
         <DeskMonitor rois={library.rois} desks={desks} now={now} />
 
         <div className="mt-6 flex flex-wrap items-center gap-3 text-sm">
-          <button type="button" onClick={() => void runScenario('ACAPARAMIENTO_BIBLIOTECA')} className="rounded-lg bg-night px-3.5 py-2 font-medium text-night-text">
+          <button type="button" disabled={running !== null} onClick={() => void play('ACAPARAMIENTO_BIBLIOTECA')} className="rounded-lg bg-night px-3.5 py-2 font-medium text-night-text disabled:opacity-60">
             Ejecutar escenario de acaparamiento
           </button>
           {gateway.capabilities.timeScale && (
-            <p className="text-xs text-ink-soft">Con la simulación a {gateway.timeScale()}×, los 15 minutos pasan en {Math.round((15 * 60) / gateway.timeScale())} segundos.</p>
+            <p className="text-sm text-ink-soft">Con la simulación a {gateway.timeScale()}×, los 15 minutos pasan en {Math.round((15 * 60) / gateway.timeScale())} segundos.</p>
           )}
         </div>
       </section>

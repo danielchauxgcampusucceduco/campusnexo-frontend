@@ -24,7 +24,7 @@
   --color-st-optimo: #2f6fb0;
   --color-st-subutilizado: #c98f1d;
   --color-st-sobrecupo: #d2553f;
-  --color-st-noshow: #7c8b3a;
+  --color-st-noshow: #b5c24a;
   --color-st-popup: #8a5cc4;
   --color-st-mantenimiento: #6b6f73;
 
@@ -33,6 +33,22 @@
   --color-hv-ahorro: #3c9d8f;
   --color-hv-aire: #7aa6b8;
   --color-hv-manual: #8a5cc4;
+
+  /* Text inks: the same hues darkened to pass WCAG AA (≥ 4.5:1) on paper, sheet and tinted badges.
+     The bright inks above stay for fills, dots and the night viewports. */
+  --color-st-libre-ink: #1d6a5f;
+  --color-st-espera-ink: #526068;
+  --color-st-optimo-ink: #245b92;
+  --color-st-subutilizado-ink: #835a08;
+  --color-st-sobrecupo-ink: #a63823;
+  --color-st-noshow-ink: #596620;
+  --color-st-popup-ink: #6b3fa5;
+  --color-st-mantenimiento-ink: #53575b;
+  --color-hv-frio-ink: #25609a;
+  --color-hv-calor-ink: #94500f;
+  --color-hv-ahorro-ink: #1d6a5f;
+  --color-hv-aire-ink: #3c697b;
+  --color-hv-manual-ink: #6b3fa5;
 }
 
 @layer base {
@@ -48,6 +64,9 @@
     min-height: 100vh;
     background: var(--color-paper);
   }
+  p {
+    text-wrap: pretty;
+  }
   ::selection {
     background: color-mix(in oklab, var(--color-signal) 40%, transparent);
   }
@@ -59,14 +78,6 @@
 }
 
 @layer components {
-  /* Drafting-sheet grid used behind light panels. */
-  .sheet-grid {
-    background-color: var(--color-sheet);
-    background-image:
-      linear-gradient(color-mix(in oklab, var(--color-rule) 45%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in oklab, var(--color-rule) 45%, transparent) 1px, transparent 1px);
-    background-size: 24px 24px;
-  }
   /* Expanded width for titles, like lettering on a plan. */
   .lettering {
     font-stretch: 118%;
@@ -75,6 +86,22 @@
   .condensed {
     font-stretch: 82%;
   }
+}
+
+/* Presentation mode: the narrator explains, so the introductory paragraphs give their room to the views. */
+[data-presentation] .view-intro {
+  display: none;
+}
+
+/* A scenario's space on the map: its footprint ripples outwards a few times. */
+.iso-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: iso-pulse 1.3s cubic-bezier(0.16, 1, 0.3, 1) 3;
+}
+@keyframes iso-pulse {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(1.45); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

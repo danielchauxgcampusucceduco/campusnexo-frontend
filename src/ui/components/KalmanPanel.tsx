@@ -47,14 +47,14 @@ export function KalmanPanel({ state }: { state: SpaceTwinState }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="space-y-2 rounded-xl border border-rule bg-sheet p-4 text-[13px] leading-relaxed">
-        <p className="text-xs text-ink-soft">Predicción (paseo aleatorio)</p>
+        <p className="text-sm text-ink-soft">Predicción (paseo aleatorio)</p>
         <p className="tabular-nums">
           x̂⁻ = x̂ = <b>{fmt(kalman.priorEstimate, 1)}</b> personas
         </p>
         <p className="tabular-nums">
           P⁻ = P + Q·Δt = {fmt(kalman.priorVariance)} + {KALMAN_PARAMETERS.processNoisePerMinute}·{fmt(kalman.elapsedMinutes)} = <b>{fmt(kalman.predictedVariance)}</b>
         </p>
-        <p className="pt-2 text-xs text-ink-soft">Corrección secuencial: K = P⁻ / (P⁻ + R), x̂ = x̂⁻ + K(z − x̂⁻), P = (1 − K)P⁻</p>
+        <p className="pt-2 text-sm text-ink-soft">Corrección secuencial: K = P⁻ / (P⁻ + R), x̂ = x̂⁻ + K(z − x̂⁻), P = (1 − K)P⁻</p>
         <ul className="space-y-2">
           {kalman.measurements.map((m) => (
             <li key={m.source} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
@@ -70,7 +70,7 @@ export function KalmanPanel({ state }: { state: SpaceTwinState }) {
           ))}
         </ul>
         {!state.cameraOnline && (
-          <p className="rounded-md bg-st-sobrecupo/10 px-2 py-1.5 text-xs text-[#8a2f1f]">
+          <p className="rounded-md bg-st-sobrecupo/10 px-2 py-1.5 text-sm text-st-sobrecupo-ink">
             Cámara caída: el filtro solo fusiona CO₂ y Wi-Fi, por eso P crece.
           </p>
         )}
@@ -80,13 +80,13 @@ export function KalmanPanel({ state }: { state: SpaceTwinState }) {
       </div>
 
       <div>
-        <p className="mb-2 text-xs text-ink-soft">Estimación fusionada frente al conteo de la cámara</p>
+        <p className="mb-2 text-sm text-ink-soft">Estimación fusionada frente al conteo de la cámara</p>
         <div className="h-44">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={history} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid stroke="var(--color-rule)" strokeDasharray="3 4" vertical={false} />
-              <XAxis dataKey="t" tickFormatter={(t: number) => time.format(t)} tick={{ fontSize: 10, fill: 'var(--color-ink-soft)' }} minTickGap={40} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--color-ink-soft)' }} allowDecimals={false} />
+              <XAxis dataKey="t" tickFormatter={(t: number) => time.format(t)} tick={{ fontSize: 12, fill: 'var(--color-ink-soft)' }} minTickGap={40} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--color-ink-soft)' }} allowDecimals={false} />
               <Tooltip labelFormatter={(t) => time.format(Number(t))} contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: 'var(--color-rule)' }} />
               <Line type="monotone" dataKey="upper" name="Límite superior (2σ)" stroke="var(--color-rule)" dot={false} isAnimationActive={false} />
               <Line type="monotone" dataKey="lower" name="Límite inferior (2σ)" stroke="var(--color-rule)" dot={false} isAnimationActive={false} />

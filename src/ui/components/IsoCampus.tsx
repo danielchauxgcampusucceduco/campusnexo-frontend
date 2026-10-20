@@ -1,6 +1,7 @@
 import { Flame, Hand, Leaf, Power, Snowflake, Wind, Wrench } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { HvacControlState, TwinSpace } from '../../domain/model';
+import { formatNumber } from '../../domain/kpis';
 import { BRANCH_LABEL, BRANCH_ORDER, HVAC_META, STATUS_META } from '../theme';
 
 const COS = Math.cos(Math.PI / 6);
@@ -41,6 +42,8 @@ interface Props {
   twins: TwinSpace[];
   selected: string;
   onSelect: (spaceId: string) => void;
+  /** Space that just ran a scenario: its footprint pulses for a few seconds. */
+  pulse?: string | null;
 }
 
 /**
@@ -48,7 +51,7 @@ interface Props {
  * dashed wireframe is the capacity; the top face carries the status colour and the badge shows the
  * HVAC strategy chosen by the thermal-inertia controller.
  */
-export function IsoCampus({ twins, selected, onSelect }: Props) {
+export function IsoCampus({ twins, selected, onSelect, pulse = null }: Props) {
   const groups = BRANCH_ORDER.map((branchId) => {
     const rooms = twins.filter((t) => t.space.branchId === branchId);
     const blocks = rooms.map((twin, index) => {
@@ -71,6 +74,11 @@ export function IsoCampus({ twins, selected, onSelect }: Props) {
           <rect width="8" height="8" fill="#6b6f73" />
           <line x1="0" y1="0" x2="0" y2="8" stroke="#8d9296" strokeWidth="4" />
         </pattern>
+        {/* Released by no-show: the status ink with dark hatching, so it never reads as plain "Libre". */}
+        <pattern id="noshow-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="9" height="9" fill="var(--color-st-noshow)" />
+          <line x1="0" y1="0" x2="0" y2="9" stroke="#0f1d24" strokeOpacity="0.45" strokeWidth="3" />
+        </pattern>
       </defs>
 
       {groups.map(({ branchId, blocks, x0, y0, x1, y1, offset }) => {
@@ -78,18 +86,18 @@ export function IsoCampus({ twins, selected, onSelect }: Props) {
         const front = iso(x1, y1);
         const leftCorner = iso(x0, y1);
         const labelX = (front[0] + leftCorner[0]) / 2 + (iso(x1, y0)[0] - leftCorner[0]) / 4;
-        const labelY = front[1] + 46;
+        const labelY = front[1] + 58;
         return (
           <g key={branchId} transform={`translate(${offset[0]}, ${offset[1]})`}>
             <polygon points={points([iso(x0, y0), iso(x1, y0), iso(x1, y1), iso(x0, y1)])} fill="#14262f" stroke="#2a4350" strokeWidth="1.2" />
             <polygon points={points([iso(x0, y1), iso(x1, y1), iso(x1, y1, -8), iso(x0, y1, -8)])} fill="#0b161c" />
             <polygon points={points([iso(x1, y0), iso(x1, y1), iso(x1, y1, -8), iso(x1, y0, -8)])} fill="#0d1a21" />
             {blocks.map((block) => (
-              <RoomBlock key={block.twin.space.spaceId} {...block} selected={selected === block.twin.space.spaceId} onSelect={onSelect} />
+              <RoomBlock key={block.twin.space.spaceId} {...block} selected={selected === block.twin.space.spaceId} pulse={pulse === block.twin.space.spaceId} onSelect={onSelect} />
             ))}
             {blocks.map((block) => <RoomLabel key={`label-${block.twin.space.spaceId}`} {...block} />)}
-            <text x={labelX} y={labelY} fill="#cfe0dc" fontSize="15" fontWeight={600} style={{ fontStretch: '118%' }} textAnchor="middle">{label.name}</text>
-            <text x={labelX} y={labelY + 17} fill="#7f9aa3" fontSize="11.5" textAnchor="middle">{label.city}, {label.climate.toLowerCase()}</text>
+            <text x={labelX} y={labelY} fill="#e8f2ef" fontSize="20" fontWeight={600} style={{ fontStretch: '118%' }} textAnchor="middle">{label.name}</text>
+            <text x={labelX} y={labelY + 21} fill="#a9c2c8" fontSize="14.5" textAnchor="middle">{label.city}, {label.climate.toLowerCase()}</text>
           </g>
         );
       })}
@@ -97,12 +105,13 @@ export function IsoCampus({ twins, selected, onSelect }: Props) {
   );
 }
 
-function RoomBlock({ twin, x, y, w, d, selected, onSelect }: { twin: TwinSpace; x: number; y: number; w: number; d: number; selected: boolean; onSelect: (spaceId: string) => void }) {
+function RoomBlock({ twin, x, y, w, d, selected, pulse, onSelect }: { twin: TwinSpace; x: number; y: number; w: number; d: number; selected: boolean; pulse: boolean; onSelect: (spaceId: string) => void }) {
   const { space, state } = twin;
   const share = Math.min(1.25, state.occupancy / space.capacity);
   const h = Math.max(5, share * MAX_HEIGHT);
   const color = STATUS_META[state.status].color;
   const maintenance = state.status === 'MANTENIMIENTO';
+  const noShow = state.status === 'LIBERADO_POR_NO_SHOW';
   const top = [iso(x, y, h), iso(x + w, y, h), iso(x + w, y + d, h), iso(x, y + d, h)];
   const left = [iso(x, y + d, 0), iso(x + w, y + d, 0), iso(x + w, y + d, h), iso(x, y + d, h)];
   const right = [iso(x + w, y, 0), iso(x + w, y + d, 0), iso(x + w, y + d, h), iso(x + w, y, h)];
@@ -110,7 +119,8 @@ function RoomBlock({ twin, x, y, w, d, selected, onSelect }: { twin: TwinSpace; 
   const [bx, by] = iso(x + w / 2, y + d / 2, Math.max(h, MAX_HEIGHT) + 26);
   const Icon = HVAC_ICON[state.hvacState];
   const hvacColor = HVAC_META[state.hvacState].color;
-  const fill = (base: string) => (maintenance ? 'url(#maintenance-hatch)' : base);
+  const fill = (base: string) => (maintenance ? 'url(#maintenance-hatch)' : noShow ? 'url(#noshow-hatch)' : base);
+  const footprint = points([iso(x - 6, y - 6), iso(x + w + 6, y - 6), iso(x + w + 6, y + d + 6), iso(x - 6, y + d + 6)]);
   return (
     <g
       role="button"
@@ -121,8 +131,8 @@ function RoomBlock({ twin, x, y, w, d, selected, onSelect }: { twin: TwinSpace; 
       onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(space.spaceId); } }}
       className="group cursor-pointer outline-none"
     >
-      <polygon points={points([iso(x - 6, y - 6), iso(x + w + 6, y - 6), iso(x + w + 6, y + d + 6), iso(x - 6, y + d + 6)])}
-        fill="none" stroke="#5fd0bf" strokeWidth="2" className={selected ? 'opacity-100' : 'opacity-0 group-focus-visible:opacity-100'} />
+      {pulse && <polygon points={footprint} fill="none" stroke="#5fd0bf" strokeWidth="3" className="iso-pulse" />}
+      <polygon points={footprint} fill="none" stroke="#5fd0bf" strokeWidth="2.5" className={selected ? 'opacity-100' : 'opacity-0 group-focus-visible:opacity-100'} />
       <polygon points={points(cap)} fill="none" stroke="#3d5a68" strokeDasharray="4 4" />
       {[[x, y], [x + w, y], [x + w, y + d], [x, y + d]].map(([cx, cy], i) => {
         const [x1, y1] = iso(cx!, cy!, 0);
@@ -133,16 +143,16 @@ function RoomBlock({ twin, x, y, w, d, selected, onSelect }: { twin: TwinSpace; 
       <polygon points={points(right)} fill={fill(shade(color, 55))} />
       <polygon points={points(top)} fill={fill(color)} stroke="#e8f2ef" strokeOpacity="0.35" />
       <line x1={bx} y1={by + 13} x2={iso(x + w / 2, y + d / 2, h)[0]} y2={iso(x + w / 2, y + d / 2, h)[1]} stroke="#3d5a68" />
-      <g transform={`translate(${bx - 52}, ${by - 14})`}>
-        <rect width="104" height="26" rx="13" fill="#0f1d24" stroke={hvacColor} strokeOpacity="0.8" />
-        <foreignObject x="6" y="4" width="18" height="18" style={{ color: hvacColor }}>
-          <Icon className={`h-[18px] w-[18px] ${state.hvacState === 'VENTILACION_CO2_ACTIVA' ? 'animate-spin [animation-duration:2.4s]' : ''}`} />
+      <g transform={`translate(${bx - 84}, ${by - 16})`}>
+        <rect width="168" height="32" rx="16" fill="#0f1d24" stroke={hvacColor} strokeOpacity="0.9" strokeWidth="1.5" />
+        <foreignObject x="8" y="6" width="20" height="20" style={{ color: hvacColor }}>
+          <Icon className={`h-5 w-5 ${state.hvacState === 'VENTILACION_CO2_ACTIVA' ? 'animate-spin [animation-duration:2.4s]' : ''}`} />
         </foreignObject>
-        <text x="28" y="17.5" fill="#e8f2ef" fontSize="11.5" fontWeight={600}>{state.indoorTemperatureC.toFixed(1)} °C</text>
-        <text x="72" y="17.5" fill={state.co2Ppm > 1000 ? '#f08a5d' : '#8fb0b8'} fontSize="10.5">{Math.round(state.co2Ppm)}</text>
+        <text x="33" y="21" fill="#e8f2ef" fontSize="14.5" fontWeight={600}>{formatNumber(state.indoorTemperatureC)} °C</text>
+        <text x="158" y="21" textAnchor="end" fill={state.co2Ppm > 1000 ? '#f6a47f' : '#a9c2c8'} fontSize="13">{Math.round(state.co2Ppm)} ppm</text>
       </g>
       {maintenance && (
-        <foreignObject x={bx - 9} y={by - 40} width="18" height="18" style={{ color: '#c8ccd0' }}><Wrench className="h-[18px] w-[18px]" /></foreignObject>
+        <foreignObject x={bx - 10} y={by - 44} width="20" height="20" style={{ color: '#c8ccd0' }}><Wrench className="h-5 w-5" /></foreignObject>
       )}
     </g>
   );
@@ -153,8 +163,8 @@ function RoomLabel({ twin, x, y, w, d }: { twin: TwinSpace; x: number; y: number
   const [nx, ny] = iso(x + w, y + d, 0);
   return (
     <g aria-hidden>
-      <text x={nx} y={ny + 17} fill="#e8f2ef" fontSize="12" fontWeight={600} textAnchor="middle" paintOrder="stroke" stroke="#0f1d24" strokeWidth="4">{twin.space.name}</text>
-      <text x={nx} y={ny + 31} fill="#8fb0b8" fontSize="10.5" textAnchor="middle" paintOrder="stroke" stroke="#0f1d24" strokeWidth="4">{twin.state.occupancy}/{twin.space.capacity} personas</text>
+      <text x={nx} y={ny + 20} fill="#f2f8f6" fontSize="15.5" fontWeight={600} textAnchor="middle" paintOrder="stroke" stroke="#0f1d24" strokeWidth="5">{twin.space.name}</text>
+      <text x={nx} y={ny + 38} fill="#a9c2c8" fontSize="13.5" textAnchor="middle" paintOrder="stroke" stroke="#0f1d24" strokeWidth="5">{twin.state.occupancy} de {twin.space.capacity} personas</text>
     </g>
   );
 }

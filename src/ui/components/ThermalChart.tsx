@@ -15,8 +15,8 @@ export function ThermalChart({ decision, profile, outdoorC }: { decision: Therma
         <ComposedChart data={data} margin={{ top: 6, right: 10, left: -16, bottom: 0 }}>
           <CartesianGrid stroke="var(--color-rule)" strokeDasharray="3 4" vertical={false} />
           <ReferenceArea y1={band.lowC} y2={band.highC} fill="var(--color-st-libre)" fillOpacity={0.12} stroke="var(--color-st-libre)" strokeOpacity={0.4} strokeDasharray="4 4" />
-          <XAxis dataKey="minute" tickFormatter={(m: number) => `${m} min`} tick={{ fontSize: 10, fill: 'var(--color-ink-soft)' }} />
-          <YAxis domain={[min, max]} tickFormatter={(t: number) => `${t}°`} tick={{ fontSize: 10, fill: 'var(--color-ink-soft)' }} />
+          <XAxis dataKey="minute" tickFormatter={(m: number) => `${m} min`} tick={{ fontSize: 12, fill: 'var(--color-ink-soft)' }} />
+          <YAxis domain={[min, max]} tickFormatter={(t: number) => `${t}°`} tick={{ fontSize: 12, fill: 'var(--color-ink-soft)' }} />
           <Tooltip formatter={(value, name) => [`${Number(value).toFixed(2)} °C`, name]} labelFormatter={(m) => `Minuto ${m}`} contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: 'var(--color-rule)' }} />
           <Line dataKey="outdoor" name="Exterior" stroke="var(--color-ink-soft)" strokeDasharray="2 4" dot={false} isAnimationActive={false} />
           <Area dataKey="temperature" name="Interior sin climatizar" stroke="var(--color-st-optimo)" strokeWidth={2.2} fill="var(--color-st-optimo)" fillOpacity={0.08} dot={false} isAnimationActive={false} />
