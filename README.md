@@ -35,7 +35,19 @@ El dominio TypeScript replica la matemática del backend, y `src/domain/domain.t
 | `#/arquitectura` | Hexágono por capas que se ilumina paso a paso con la traza real de cada evento: adaptador de entrada, puerto, caso de uso, dominio, puertos de salida y adaptadores de salida. |
 | `#/energia` | Potencia actual frente al horario convencional; kWh, COP y kg CO₂ acumulados por espacio. |
 
-La barra inferior dispara los 12 escenarios de sustentación. En la simulación también se puede acelerar el tiempo (por ejemplo, a 60×, los 15 minutos del cronómetro pasan en 15 segundos).
+La columna izquierda dispara los 12 escenarios de sustentación, agrupados por lo que demuestran. Después de cada uno, una franja grande arriba de la vista resume la causa (lo medido), la decisión (la regla del dominio que la tomó) y el efecto (lo que se le ordenó al HVAC), y se actualiza en vivo mientras el espacio se asienta. En la simulación también se puede acelerar el tiempo (por ejemplo, a 60×, los 15 minutos del cronómetro pasan en 15 segundos).
+
+### Modo presentación y atajos
+
+Con el modo presentación activo (tecla `P`, activo por defecto), cada escenario lleva la pantalla a la vista donde se ve su efecto, selecciona el espacio afectado, lo hace pulsar en el mapa y oculta los párrafos de introducción para dejar más espacio en el proyector.
+
+| Tecla | Acción |
+|---|---|
+| `1`–`9`, `0`, `B` | Escenarios, en el orden de la columna |
+| `R` | Reiniciar todo |
+| `G` `C` `L` `A` `E` | Gemelo, Cámara, Biblioteca, Arquitectura, Energía |
+| `P` | Activar o desactivar el modo presentación |
+| `Espacio`, `←` `→` | En Arquitectura: pausar el recorrido y avanzarlo paso a paso |
 
 ## Desarrollo
 
