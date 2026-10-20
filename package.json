@@ -1,0 +1,10 @@
+{
+  "name": "campusnexo-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {"dev":"vite --host 0.0.0.0", "build":"vite build", "preview":"vite preview --host 0.0.0.0"},
+  "dependencies": {"@vitejs/plugin-react":"^6.1.2", "vite":"^8.3.4", "react":"^19.3.0", "react-dom":"^19.3.0", "lucide-react":"^0.468.0"},
+  "devDependencies": {}
+}
