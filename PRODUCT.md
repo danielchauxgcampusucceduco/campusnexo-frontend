@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Usuario principal: el jurado de la sustentación del proyecto de grado del curso Patrones de Software. Lo ven en vivo mientras Daniel presenta, y después lo revisan por su cuenta. Tienen que poder comprobar que la arquitectura hexagonal y los patrones funcionan de verdad, no solo que la interfaz se ve bien.
+Usuario principal: el jurado de la sustentación del proyecto del curso Patrones de Software. Lo ven en vivo mientras Daniel presenta, y después lo revisan por su cuenta. Tienen que poder comprobar que la arquitectura hexagonal y los patrones funcionan de verdad, no solo que la interfaz se ve bien.
 
 Los usuarios que el producto simula, que son el personal de infraestructura y de biblioteca del campus y los estudiantes con la app móvil, son parte del relato de la demo y no un público confirmado.
 
