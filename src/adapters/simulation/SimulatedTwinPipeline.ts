@@ -122,7 +122,7 @@ const nextStartingAfter = (reservations: readonly SimReservation[], spaceId: str
   reservations.filter((r) => r.spaceId === spaceId && r.startsAt > at).sort((a, b) => a.startsAt - b.startsAt)[0] ?? null;
 
 /**
- * Browser twin of ProcessSpaceTelemetryService: same order of domain services and the same trace
+ * Browser twin of the backend twin pipeline (ProcessCameraFrameService and friends): same order of domain services and the same trace
  * vocabulary, so the architecture view reads identically in both data modes.
  */
 export function processFrame(input: {

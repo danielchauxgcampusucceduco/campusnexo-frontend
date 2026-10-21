@@ -77,7 +77,7 @@ function campusMorning(): number {
 
 /**
  * Fallback adapter that runs the whole campus inside the browser: a physics engine (people, air,
- * temperature) feeds synthetic YOLO frames into a TypeScript twin of ProcessSpaceTelemetryService.
+ * temperature) feeds synthetic YOLO frames into a TypeScript twin of the backend pipeline (camera, Arduino and re-evaluation use cases).
  * Animation runs on real time (smooth 60 FPS camera), while physics and frames run on simulated time,
  * which can be accelerated so a 15-minute abandonment timer fits in a live demo.
  */
