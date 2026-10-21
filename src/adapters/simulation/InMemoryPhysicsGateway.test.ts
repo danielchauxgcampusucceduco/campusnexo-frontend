@@ -19,7 +19,7 @@ describe('campus de la simulación local', () => {
     const twins = new InMemoryPhysicsGateway(START).getSnapshot().twins;
     expect(twins).toHaveLength(107);
     expect(twins.some((t) => t.space.buildingId === 'BLOQUE-A')).toBe(true);
-    expect(twins.find((t) => t.space.spaceId === '421-A')!.rois).toHaveLength(30);
+    expect(twins.find((t) => t.space.spaceId === '421-A')!.rois).toHaveLength(36);
     expect(twins.find((t) => t.space.spaceId === '4A-SALA-DE-JUNTAS-GALERAS')!.rois).toHaveLength(0);
   });
 });
