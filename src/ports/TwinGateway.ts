@@ -8,7 +8,8 @@ import type {
 } from '../domain/model';
 
 export type DataSourceMode = 'backend' | 'simulation';
-export type ConnectionState = 'connecting' | 'live' | 'degraded' | 'offline';
+/** 'unauthorized': the session expired or was revoked; the person must sign in again. */
+export type ConnectionState = 'connecting' | 'live' | 'degraded' | 'offline' | 'unauthorized';
 
 /**
  * What the camera "sees" for one space. In simulation the boxes come from the physics engine; with
@@ -44,12 +45,26 @@ export interface GatewayCapabilities {
   timeScale: boolean;
   /** The room lights can be switched from the dashboard (someone at the wall switch). */
   lightControl: boolean;
+  /** The defense scenarios can be run (always in simulation; ADMIN with the backend). */
+  scenarios: boolean;
+  /** Manual controls and reservations (OPERATOR or ADMIN with the backend). */
+  operations: boolean;
+}
+
+/** Who is using the dashboard when the data comes from the backend. */
+export interface GatewayUser {
+  username: string;
+  role: 'VIEWER' | 'OPERATOR' | 'ADMIN' | 'SENSOR';
+  /** False when the backend runs in development mode without sign-in. */
+  signedIn: boolean;
 }
 
 /** Driven port of the dashboard: everything the UI needs from a data source. */
 export interface TwinGateway {
   readonly mode: DataSourceMode;
   readonly capabilities: GatewayCapabilities;
+  /** The signed-in person (backend only). */
+  readonly user: GatewayUser | null;
   start(): Promise<void>;
   stop(): void;
   subscribe(listener: () => void): () => void;

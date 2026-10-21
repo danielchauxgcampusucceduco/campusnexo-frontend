@@ -2,6 +2,7 @@ import { BookOpen, Cctv, Leaf, Map, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTwin } from '../application/TwinContext';
 import { SIMULATION_SCENARIOS } from '../domain/model';
+import { DataSourceBanner } from './components/DataSourceBanner';
 import { Notices } from './components/Notices';
 import { OutcomeStrip } from './components/OutcomeStrip';
 import { Kbd, ScenarioDock } from './components/ScenarioDock';
@@ -33,10 +34,10 @@ function typingInto(target: EventTarget | null): boolean {
 
 /** Presenter shortcuts: one key per scenario and per view, P for presentation mode. */
 function useShortcuts() {
-  const { scenarios } = useTwin();
+  const { scenarios, gateway } = useTwin();
   const { play, presentation, setPresentation } = useStage();
   useEffect(() => {
-    const available = new Set(scenarios.map((s) => s.scenario));
+    const available = new Set(gateway.capabilities.scenarios ? scenarios.map((s) => s.scenario) : []);
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || typingInto(event.target)) return;
       const key = event.key.toUpperCase();
@@ -55,7 +56,7 @@ function useShortcuts() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [scenarios, play, presentation, setPresentation]);
+  }, [scenarios, gateway, play, presentation, setPresentation]);
 }
 
 function Shell() {
@@ -89,6 +90,7 @@ function Shell() {
   return (
     <div className="flex min-h-screen flex-col">
       <TopBar />
+      <DataSourceBanner />
       <div className="flex flex-1 flex-col md:flex-row">
         <div className="shrink-0 border-b border-rule md:sticky md:top-14 md:flex md:h-[calc(100vh-3.5rem)] md:w-[212px] md:flex-col md:gap-5 md:overflow-y-auto md:border-b-0 md:border-r md:px-3 md:py-4">
           <nav ref={nav} aria-label="Vistas" className="flex gap-1 overflow-x-auto px-3 py-2 md:flex-col md:overflow-visible md:p-0">

@@ -8,7 +8,7 @@ import type {
   TwinSpace,
 } from '../../domain/model';
 import { SCENARIO_CATALOG } from '../../domain/scenarios';
-import type { CameraFrame, ConnectionState, GatewayCapabilities, TwinGateway, TwinSnapshot } from '../../ports/TwinGateway';
+import type { CameraFrame, ConnectionState, GatewayCapabilities, GatewayUser, TwinGateway, TwinSnapshot } from '../../ports/TwinGateway';
 import { reconstructFrame } from './reconstructFrame';
 
 const MAX_TRACES = 40;
@@ -28,11 +28,14 @@ export class BackendError extends Error {
 
 /**
  * Adapter for the Java backend: REST for queries and commands, STOMP over WebSocket for pushed twin
- * updates (/topic/twin) and architecture traces (/topic/traces).
+ * updates (/topic/twin) and architecture traces (/topic/traces). Every call carries the session token of
+ * the person who signed in (Authorization: Bearer), the STOMP CONNECT frame too; what the UI offers follows
+ * the role the backend granted.
  */
 export class BackendTwinGateway implements TwinGateway {
   readonly mode = 'backend' as const;
-  readonly capabilities: GatewayCapabilities = { checkIn: false, cameraControl: false, timeScale: false, lightControl: false };
+  readonly capabilities: GatewayCapabilities;
+  readonly user: GatewayUser;
 
   private twins: TwinSpace[] = [];
   private savings: SavingsReport | null = null;
@@ -45,22 +48,15 @@ export class BackendTwinGateway implements TwinGateway {
   private stomp: Client | null = null;
   private savingsTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private readonly apiBase: string, private readonly wsUrl: string) {
+  constructor(private readonly apiBase: string, private readonly wsUrl: string, private readonly token: string | null,
+              user: GatewayUser) {
+    this.user = user;
+    const admin = user.role === 'ADMIN';
+    this.capabilities = {
+      checkIn: false, cameraControl: false, timeScale: false, lightControl: false,
+      scenarios: admin, operations: admin || user.role === 'OPERATOR',
+    };
     this.snapshot = this.build();
-  }
-
-  /** Fails fast when the backend is unreachable, so the dual gateway can fall back. */
-  static async probe(apiBase: string, timeoutMs: number): Promise<boolean> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(`${apiBase}/twin/spaces`, { signal: controller.signal });
-      return response.ok;
-    } catch {
-      return false;
-    } finally {
-      clearTimeout(timeout);
-    }
   }
 
   async start(): Promise<void> {
@@ -75,6 +71,7 @@ export class BackendTwinGateway implements TwinGateway {
     try {
       this.catalog = await this.get<ScenarioInfo[]>('/simulation/scenarios');
     } catch (error) {
+      // 404: the scenarios are disabled on this server (production default).
       if (!(error instanceof BackendError && error.status === 404)) throw error;
       this.catalog = [];
     }
@@ -104,6 +101,9 @@ export class BackendTwinGateway implements TwinGateway {
   }
 
   async runScenario(scenario: SimulationScenario): Promise<ArchitectureTrace | null> {
+    if (!this.capabilities.scenarios) {
+      throw new Error('Los escenarios de demostración solo los puede ejecutar un administrador.');
+    }
     const response = await this.send<SimulationResponse>(`/simulation/${scenario}`, 'POST');
     for (const twin of response.spaces) this.mergeTwin(twin);
     if (response.trace) {
@@ -146,6 +146,7 @@ export class BackendTwinGateway implements TwinGateway {
   private connectStomp(): void {
     this.stomp = new Client({
       brokerURL: this.wsUrl,
+      connectHeaders: this.token ? { Authorization: `Bearer ${this.token}` } : {},
       reconnectDelay: 3_000,
       heartbeatIncoming: 10_000,
       heartbeatOutgoing: 10_000,
@@ -206,7 +207,15 @@ export class BackendTwinGateway implements TwinGateway {
   }
 
   private async send<T>(path: string, method: 'GET' | 'POST'): Promise<T> {
-    const response = await fetch(`${this.apiBase}${path}`, { method, headers: { Accept: 'application/json' } });
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const response = await fetch(`${this.apiBase}${path}`, { method, headers });
+    if (response.status === 401) {
+      // Expired or revoked session: stop pushing stale data and ask the person to sign in again.
+      this.connection = 'unauthorized';
+      void this.stomp?.deactivate();
+      this.publish();
+    }
     if (!response.ok) {
       let detail = `HTTP ${response.status}`;
       try {
