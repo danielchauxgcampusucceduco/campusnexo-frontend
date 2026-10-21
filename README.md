@@ -21,7 +21,14 @@ src/
 └── ui/                     vistas y componentes de presentación
 ```
 
-La UI solo conoce el puerto `TwinGateway`. Al iniciar, `createGateway` prueba el backend (`GET /api/v1/twin/spaces`). Si responde, usa `BackendTwinGateway`: REST para consultas y escenarios, y STOMP sobre WebSocket (`/topic/twin`, `/topic/traces`) para actualizaciones. Si no responde, usa `InMemoryPhysicsGateway`, un motor físico (personas, CO₂ y temperatura con el mismo modelo RC del MPC) que alimenta frames YOLO sintéticos a una versión TypeScript de `ProcessSpaceTelemetryService`. Así la sustentación funciona aunque no haya red. La barra superior permite cambiar de fuente en vivo.
+La UI solo conoce el puerto `TwinGateway`. Al iniciar, `createGateway` consulta la sesión pública del backend (`GET /api/v1/auth/session`):
+
+- Si el backend exige inicio de sesión y no hay token, aparece la pantalla **Iniciar sesión**. El token (firmado por el backend, con rol VIEWER, OPERATOR o ADMIN) se guarda en `sessionStorage`, viaja en `Authorization: Bearer` en cada llamada y en el `CONNECT` de STOMP. El tablero no contiene claves compartidas.
+- Lo que la interfaz ofrece sigue al rol: un VIEWER (jurado) ve todo pero no ejecuta demostraciones; solo un ADMIN las ejecuta. Si la sesión vence, el tablero se cierra y vuelve a pedir inicio de sesión.
+- **Falla cerrado.** En producción (`VITE_DATA_SOURCE` vacío en `npm run build`) la fuente es `backend`: si el servidor no responde, se muestra **Sin conexión con el servidor** con «Reintentar»; la simulación solo se usa si la persona la elige. En `npm run dev` la fuente por defecto es `auto` (cae a la simulación para la demo en un portátil).
+- Una franja fija dice siempre de dónde vienen los datos cuando no son el campus en vivo: «Simulación…» o «Sin actualización en vivo…» con la hora de la última actualización.
+
+`BackendTwinGateway` usa REST para consultas y escenarios, y STOMP sobre WebSocket (`/topic/twin`, `/topic/traces`) para actualizaciones. `InMemoryPhysicsGateway` es un motor físico (personas, CO₂ y temperatura con el mismo modelo RC del MPC) que alimenta frames YOLO sintéticos a una versión TypeScript del pipeline del gemelo.
 
 El dominio TypeScript replica la matemática del backend, y `src/domain/domain.test.ts` usa los mismos casos que los tests de Java para que ambas implementaciones coincidan.
 
@@ -62,7 +69,7 @@ Variables (ver `.env.example`):
 
 - `VITE_API_URL`: base REST; por defecto `/api/v1`.
 - `VITE_WS_URL`: endpoint STOMP; por defecto `ws(s)://<origen>/ws`.
-- `VITE_DATA_SOURCE`: `auto`, `backend` o `simulation`.
+- `VITE_DATA_SOURCE`: `backend` (por defecto en producción y en la imagen Docker), `auto` (por defecto en `npm run dev`) o `simulation`.
 
 ## Docker
 

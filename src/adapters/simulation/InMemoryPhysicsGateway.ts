@@ -83,7 +83,8 @@ function campusMorning(): number {
  */
 export class InMemoryPhysicsGateway implements TwinGateway {
   readonly mode = 'simulation' as const;
-  readonly capabilities: GatewayCapabilities = { checkIn: true, cameraControl: true, timeScale: true, lightControl: true };
+  readonly capabilities: GatewayCapabilities = { checkIn: true, cameraControl: true, timeScale: true, lightControl: true, scenarios: true, operations: true };
+  readonly user = null;
 
   private readonly rooms = new Map<string, Room>();
   private reservations: SimReservation[] = [];

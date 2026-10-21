@@ -9,7 +9,8 @@ COPY src ./src
 # Same-origin by default: nginx proxies /api and /ws to the backend.
 ARG VITE_API_URL=/api/v1
 ARG VITE_WS_URL=
-ARG VITE_DATA_SOURCE=auto
+# backend: production fails closed (no silent switch to the simulation). Use auto only for a demo laptop.
+ARG VITE_DATA_SOURCE=backend
 ENV VITE_API_URL=$VITE_API_URL VITE_WS_URL=$VITE_WS_URL VITE_DATA_SOURCE=$VITE_DATA_SOURCE
 RUN npm run test && npm run build
 

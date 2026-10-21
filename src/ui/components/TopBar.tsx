@@ -1,4 +1,4 @@
-import { Gauge, Radio, Server, Zap } from 'lucide-react';
+import { Gauge, LogOut, Radio, Server, UserRound, Zap } from 'lucide-react';
 import { useTwin } from '../../application/TwinContext';
 import { fleetPower, formatCop, formatNumber } from '../../domain/kpis';
 
@@ -7,12 +7,15 @@ const SPEEDS = [1, 10, 60, 120];
 const connectionCopy = {
   connecting: 'Conectando',
   live: 'En vivo',
-  degraded: 'Conexión lenta',
+  degraded: 'Sin actualización en vivo',
   offline: 'Sin conexión',
+  unauthorized: 'Sesión vencida',
 } as const;
 
+const ROLE_COPY = { VIEWER: 'Consulta', OPERATOR: 'Personal', ADMIN: 'Administrador', SENSOR: 'Sensor' } as const;
+
 export function TopBar() {
-  const { gateway, snapshot, switchMode, switching } = useTwin();
+  const { gateway, snapshot, switchMode, switching, signOut } = useTwin();
   const clock = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Bogota' }).format(snapshot.now);
   const power = fleetPower(snapshot.twins, snapshot.now);
   const backend = gateway.mode === 'backend';
@@ -86,6 +89,16 @@ export function TopBar() {
               ))}
             </select>
           </label>
+        )}
+        {gateway.user && (
+          <span className="flex items-center gap-2 text-ink-soft">
+            <UserRound className="h-4 w-4" />
+            <span><b className="font-semibold text-ink">{gateway.user.username}</b> · {ROLE_COPY[gateway.user.role]}</span>
+            {gateway.user.signedIn && (
+              <button type="button" onClick={signOut} title="Cerrar sesión" aria-label="Cerrar sesión"
+                className="rounded-md p-1 hover:bg-sheet hover:text-ink"><LogOut className="h-4 w-4" /></button>
+            )}
+          </span>
         )}
       </div>
     </header>

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { ArchitectureTrace, ScenarioInfo, SimulationScenario, TwinSpace } from '../domain/model';
 import type { DataSourceMode, TwinGateway, TwinSnapshot } from '../ports/TwinGateway';
+import { LoginRequiredError, login, logout } from '../adapters/backend/BackendSession';
 import { createGateway, readConfig } from './gatewayFactory';
 
 export interface Notice {
@@ -19,15 +20,35 @@ interface TwinContextValue {
   notices: Notice[];
   notify: (tone: Notice['tone'], text: string) => void;
   twin: (spaceId: string) => TwinSpace | undefined;
+  /** Ends the backend session (backend only). */
+  signOut: () => void;
 }
 
 const TwinContextInstance = createContext<TwinContextValue | null>(null);
 const config = readConfig();
 let noticeSequence = 0;
 
+/** What the provider shows before the twin is ready. */
+export type GatewayStatus =
+  | { kind: 'loading' }
+  | { kind: 'login'; reason: string }
+  | { kind: 'unavailable'; reason: string };
+
+export interface StatusScreens {
+  /** Waiting for the data source. */
+  loading: ReactNode;
+  /** The backend requires sign-in. */
+  login: (props: { reason: string; submit: (username: string, password: string) => Promise<void>; chooseSimulation: () => void }) => ReactNode;
+  /** The backend did not answer; never replaced by synthetic data without the person choosing it. */
+  unavailable: (props: { reason: string; retry: () => void; chooseSimulation: () => void }) => ReactNode;
+}
+
 /** Application layer of the dashboard: owns the active gateway and exposes use cases to the UI. */
-export function TwinProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
+export function TwinProvider({ children, screens }: { children: ReactNode; screens: StatusScreens }) {
   const [gateway, setGateway] = useState<TwinGateway | null>(null);
+  const [status, setStatus] = useState<GatewayStatus>({ kind: 'loading' });
+  const [attempt, setAttempt] = useState(0);
+  const [requested, setRequested] = useState<DataSourceMode | 'auto'>(config.preference);
   const [switching, setSwitching] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
 
@@ -40,46 +61,91 @@ export function TwinProvider({ children, fallback }: { children: ReactNode; fall
   useEffect(() => {
     let active: TwinGateway | null = null;
     let cancelled = false;
-    createGateway(config).then(async (created) => {
-      if (cancelled) return;
-      await created.start();
+    setStatus({ kind: 'loading' });
+    createGateway(config, requested).then((created) => {
+      if (cancelled) {
+        created.stop();
+        return;
+      }
       active = created;
       setGateway(created);
-      if (created.mode === 'simulation' && config.preference !== 'simulation') {
+      if (created.mode === 'simulation' && requested === 'auto') {
         notify('info', 'El servidor no respondió; la demo sigue con la simulación en este navegador.');
       }
-    }).catch((error: unknown) => notify('error', error instanceof Error ? error.message : String(error)));
+    }).catch((error: unknown) => {
+      if (cancelled) return;
+      const reason = error instanceof Error ? error.message : String(error);
+      setStatus(error instanceof LoginRequiredError ? { kind: 'login', reason } : { kind: 'unavailable', reason });
+    });
     return () => {
       cancelled = true;
       active?.stop();
     };
-  }, [notify]);
+  }, [notify, requested, attempt]);
+
+  // An expired or revoked session closes the twin and asks to sign in again.
+  useEffect(() => {
+    if (!gateway) return;
+    return gateway.subscribe(() => {
+      if (gateway.getSnapshot().connection === 'unauthorized') {
+        gateway.stop();
+        logout();
+        setGateway(null);
+        setStatus({ kind: 'login', reason: 'Tu sesión terminó; vuelve a iniciar sesión.' });
+      }
+    });
+  }, [gateway]);
+
+  const submit = useCallback(async (username: string, password: string) => {
+    await login(config.apiBase, username, password);
+    setRequested('backend');
+    setAttempt((n) => n + 1);
+  }, []);
+  const chooseSimulation = useCallback(() => setRequested('simulation'), []);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   const switchMode = useCallback(async (mode: DataSourceMode) => {
     if (!gateway || gateway.mode === mode) return;
     setSwitching(true);
     try {
       const next = await createGateway(config, mode);
-      await next.start();
       gateway.stop();
       setGateway(next);
-      notify('info', mode === 'backend' ? 'Conectado al backend Java en tiempo real.' : 'Simulación física local activa.');
+      notify('info', mode === 'backend' ? 'Conectado al servidor real.' : 'Simulación activa: los datos no son del campus real.');
     } catch (error) {
-      notify('error', error instanceof Error ? error.message : String(error));
+      if (error instanceof LoginRequiredError) {
+        gateway.stop();
+        setGateway(null);
+        setStatus({ kind: 'login', reason: error.message });
+      } else {
+        notify('error', error instanceof Error ? error.message : String(error));
+      }
     } finally {
       setSwitching(false);
     }
   }, [gateway, notify]);
 
-  if (!gateway) return <>{fallback}</>;
+  const signOut = useCallback(() => {
+    logout();
+    gateway?.stop();
+    setGateway(null);
+    setStatus({ kind: 'login', reason: 'Sesión cerrada.' });
+  }, [gateway]);
+
+  if (!gateway) {
+    if (status.kind === 'login') return <>{screens.login({ reason: status.reason, submit, chooseSimulation })}</>;
+    if (status.kind === 'unavailable') return <>{screens.unavailable({ reason: status.reason, retry, chooseSimulation })}</>;
+    return <>{screens.loading}</>;
+  }
   return (
-    <ConnectedProvider gateway={gateway} switchMode={switchMode} switching={switching} notices={notices} notify={notify}>
+    <ConnectedProvider gateway={gateway} switchMode={switchMode} switching={switching} notices={notices} notify={notify}
+      signOut={signOut}>
       {children}
     </ConnectedProvider>
   );
 }
 
-function ConnectedProvider({ gateway, children, switchMode, switching, notices, notify }: Omit<TwinContextValue, 'snapshot' | 'scenarios' | 'runScenario' | 'twin'> & { children: ReactNode }) {
+function ConnectedProvider({ gateway, children, switchMode, switching, notices, notify, signOut }: Omit<TwinContextValue, 'snapshot' | 'scenarios' | 'runScenario' | 'twin'> & { children: ReactNode }) {
   const snapshot = useSyncExternalStore(
     useCallback((listener: () => void) => gateway.subscribe(listener), [gateway]),
     () => gateway.getSnapshot(),
@@ -102,7 +168,8 @@ function ConnectedProvider({ gateway, children, switchMode, switching, notices, 
     switching,
     notices,
     notify,
-  }), [gateway, snapshot, runScenario, switchMode, switching, notices, notify]);
+    signOut,
+  }), [gateway, snapshot, runScenario, switchMode, switching, notices, notify, signOut]);
   return <TwinContextInstance.Provider value={value}>{children}</TwinContextInstance.Provider>;
 }
 

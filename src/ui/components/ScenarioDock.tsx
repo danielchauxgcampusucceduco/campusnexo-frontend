@@ -18,11 +18,12 @@ export function Kbd({ children, dark }: { children: string; dark?: boolean }) {
  * `rail` stacks them in the side column (desktop); `bar` is a scrolling strip for small screens.
  */
 export function ScenarioDock({ layout }: { layout: 'rail' | 'bar' }) {
-  const { scenarios } = useTwin();
+  const { scenarios, gateway } = useTwin();
   const { play, running, presentation, setPresentation } = useStage();
   if (scenarios.length === 0) {
-    return <p className="px-3 py-3 text-sm text-ink-soft">El backend tiene los escenarios de simulación deshabilitados.</p>;
+    return <p className="px-3 py-3 text-sm text-ink-soft">Las demostraciones están apagadas en este servidor.</p>;
   }
+  const allowed = gateway.capabilities.scenarios;
   const available = new Map(scenarios.map((s) => [s.scenario, s]));
   const rail = layout === 'rail';
 
@@ -35,11 +36,12 @@ export function ScenarioDock({ layout }: { layout: 'rail' | 'bar' }) {
       <button
         key={scenario}
         type="button"
-        disabled={running !== null}
+        disabled={running !== null || !allowed}
         aria-keyshortcuts={stage.key}
-        title={info ? `${info.description}${info.spaceId !== '*' ? ` (${info.spaceId})` : ''}` : undefined}
+        title={!allowed ? 'Solo un administrador puede ejecutar las demostraciones'
+          : info ? `${info.description}${info.spaceId !== '*' ? ` (${info.spaceId})` : ''}` : undefined}
         onClick={() => void play(scenario)}
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-1 text-left text-sm transition-colors disabled:cursor-wait ${rail ? 'w-full' : 'border border-rule bg-paper'} ${active ? 'bg-white text-ink ring-1 ring-st-optimo' : 'text-ink hover:bg-white'} ${running !== null && !active ? 'opacity-55' : ''}`}
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-1 text-left text-sm transition-colors disabled:cursor-not-allowed ${rail ? 'w-full' : 'border border-rule bg-paper'} ${active ? 'bg-white text-ink ring-1 ring-st-optimo' : 'text-ink hover:bg-white'} ${running !== null && !active ? 'opacity-55' : ''}`}
       >
         <Kbd>{stage.key}</Kbd>
         {reset && <RotateCcw className="h-3.5 w-3.5 text-ink-soft" />}
@@ -51,6 +53,7 @@ export function ScenarioDock({ layout }: { layout: 'rail' | 'bar' }) {
 
   return (
     <div aria-label="Escenarios de sustentación" role="navigation" className={rail ? 'flex flex-col gap-3 [@media(max-height:780px)]:gap-2' : 'flex items-center gap-3 overflow-x-auto px-3 py-2'}>
+      {!allowed && <p className="px-2 text-xs text-ink-soft">Tu rol permite ver; las demostraciones las ejecuta un administrador.</p>}
       {SCENARIO_GROUPS.map((group) => {
         const items = group.scenarios.filter((s) => available.has(s));
         if (items.length === 0) return null;

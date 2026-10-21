@@ -156,7 +156,7 @@ export function processFrame(input: {
     trace
       .step('INBOUND_ADAPTER', trigger, `${snapshot.detections.length} detecciones, cámara ${snapshot.cameraOnline ? 'en línea' : 'caída'}`)
       .step('INPUT_PORT', 'ProcessSpaceTelemetryUseCase', 'process(TelemetrySnapshot)')
-      .step('USE_CASE', 'ProcessSpaceTelemetryService', 'Orquesta Kalman → ROI → estado → MPC');
+      .step('USE_CASE', 'ProcessCameraFrameService', 'Orquesta Kalman → ROI → estado → MPC');
     const updated = kalmanUpdate(previous.belief, snapshot, space);
     belief = updated.posterior;
     kalman = updated.step;
@@ -180,7 +180,7 @@ export function processFrame(input: {
     trace
       .step('INBOUND_ADAPTER', trigger, `${environment.temperatureC.toFixed(1)} °C, ${Math.round(environment.humidityPct)} % HR, luces ${environment.lightsOn ? 'encendidas' : 'apagadas'}, ${environment.devicesOn} equipos encendidos`)
       .step('INPUT_PORT', 'ProcessEnvironmentReadingUseCase', 'processEnvironment(EnvironmentReading)')
-      .step('USE_CASE', 'ProcessSpaceTelemetryService', 'Actualiza el ambiente y recalcula el salón');
+      .step('USE_CASE', 'ProcessEnvironmentReadingService', 'Actualiza el ambiente y recalcula el salón');
     sensors = {
       ...sensors,
       indoor: environment.temperatureC,
@@ -191,7 +191,7 @@ export function processFrame(input: {
     trace
       .step('INBOUND_ADAPTER', trigger, 'Cambio de control manual')
       .step('INPUT_PORT', 'SpaceReevaluationUseCase', `reevaluate(${space.spaceId})`)
-      .step('USE_CASE', 'ProcessSpaceTelemetryService', 'Recalcula estado y estrategia HVAC');
+      .step('USE_CASE', 'SpaceReevaluationService', 'Recalcula estado y estrategia HVAC');
   }
 
   const people = Math.round(belief.estimate);
