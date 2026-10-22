@@ -74,6 +74,17 @@ describe('BackendTwinGateway capabilities', () => {
     gateway.stop();
   });
 
+  it('degrades the connection when a scheduled savings refresh fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network offline')));
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const refresh = gateway as unknown as { refreshSavings: () => Promise<void> };
+
+    await refresh.refreshSavings();
+
+    expect(gateway.getSnapshot().connection).toBe('degraded');
+    gateway.stop();
+  });
+
   it('degrades gracefully when a pushed twin message is malformed JSON', () => {
     const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
     const receive = gateway as unknown as { onTwin: (message: { body: string }) => void };
