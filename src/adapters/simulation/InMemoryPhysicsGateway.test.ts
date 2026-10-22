@@ -25,6 +25,14 @@ describe('campus de la simulación local', () => {
     expect(() => new InMemoryPhysicsGateway(1e100)).toThrow('marca de tiempo válida');
   });
 
+  it('rejects non-boolean camera controls without changing the room state', () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+    const cameraOnline = gateway.getSnapshot().twins.find((t) => t.space.spaceId === '421-A')!.state.cameraOnline;
+
+    expect(() => gateway.setCameraOnline('421-A', 0 as never)).toThrow('estado de la cámara');
+    expect(gateway.getSnapshot().twins.find((t) => t.space.spaceId === '421-A')!.state.cameraOnline).toBe(cameraOnline);
+  });
+
   it('tiene los salones del plano en los bloques A y B con sus pupitres', () => {
     const twins = new InMemoryPhysicsGateway(START).getSnapshot().twins;
     expect(twins).toHaveLength(107);

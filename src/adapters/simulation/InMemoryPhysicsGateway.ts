@@ -154,6 +154,7 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   }
 
   setCameraOnline(spaceId: string, online: boolean): void {
+    if (typeof online !== 'boolean') throw new RangeError('El estado de la cámara debe ser booleano');
     this.room(spaceId).physics.cameraOnline = online;
     this.processSpace(spaceId, CONTROL_TRIGGER, true);
   }
