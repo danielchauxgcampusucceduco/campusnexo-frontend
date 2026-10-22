@@ -57,6 +57,16 @@ describe('campus de la simulación local', () => {
     expect(tickedAt - startedAt).toBe(60_000);
     expect(gateway.getSnapshot().now).toBe(stoppedAt);
   });
+
+  it('publishes camera-off state and continues occupancy fusion without camera measurements', () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+
+    gateway.setCameraOnline('421-A', false);
+
+    const room = gateway.getSnapshot().twins.find((t) => t.space.spaceId === '421-A')!;
+    expect(room.state.cameraOnline).toBe(false);
+    expect(room.state.kalman?.measurements.every((measurement) => measurement.source !== 'CAMARA_YOLO')).toBe(true);
+  });
 });
 
 describe('escenarios de la simulación local', () => {
