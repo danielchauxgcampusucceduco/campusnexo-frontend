@@ -23,4 +23,14 @@ describe('seat grid policy', () => {
   it('returns no camera regions for spaces without a seat layout', () => {
     expect(seatGrid({ ...space, seatRows: null, seatColumns: null })).toEqual([]);
   });
+
+  it('rejects partial, fractional, and negative layouts before creating camera regions', () => {
+    expect(() => seatGrid({ ...space, seatRows: 2, seatColumns: null })).toThrow(RangeError);
+    expect(() => seatGrid({ ...space, seatRows: 2.5, seatColumns: 3 })).toThrow(RangeError);
+    expect(() => seatGrid({ ...space, seatRows: -2, seatColumns: 3 })).toThrow(RangeError);
+  });
+
+  it('caps generated regions to prevent malformed campus metadata from expanding unboundedly', () => {
+    expect(() => seatGrid({ ...space, seatRows: 101, seatColumns: 10 })).toThrow('1000 regions');
+  });
 });

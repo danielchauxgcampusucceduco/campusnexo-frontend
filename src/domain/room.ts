@@ -35,19 +35,26 @@ function seatLabel(space: CampusSpace): string {
 
 /** Java: SeatGrid.regions. One region per seat, numbered row by row. */
 export function seatGrid(space: CampusSpace): StudyZoneRoi[] {
-  if (!space.seatRows || !space.seatColumns) return [];
+  if (space.seatRows === null && space.seatColumns === null) return [];
+  const rows = space.seatRows;
+  const columns = space.seatColumns;
+  if (typeof rows !== 'number' || typeof columns !== 'number'
+      || !Number.isSafeInteger(rows) || !Number.isSafeInteger(columns) || rows <= 0 || columns <= 0) {
+    throw new RangeError('seat layout dimensions must be positive integers');
+  }
+  if (rows * columns > 1_000) throw new RangeError('seat layout cannot exceed 1000 regions');
   const { left, right, top, bottom, inset } = SEAT_GRID;
-  const cellW = (right - left) / space.seatColumns;
-  const cellH = (bottom - top) / space.seatRows;
+  const cellW = (right - left) / columns;
+  const cellH = (bottom - top) / rows;
   const label = seatLabel(space);
   const seats: StudyZoneRoi[] = [];
-  for (let row = 0; row < space.seatRows; row++) {
-    for (let column = 0; column < space.seatColumns; column++) {
+  for (let row = 0; row < rows!; row++) {
+    for (let column = 0; column < columns!; column++) {
       const x0 = left + column * cellW + cellW * inset;
       const x1 = left + (column + 1) * cellW - cellW * inset;
       const y0 = top + row * cellH + cellH * inset;
       const y1 = top + (row + 1) * cellH - cellH * inset;
-      const number = row * space.seatColumns + column + 1;
+      const number = row * columns + column + 1;
       const polygon: NormalizedPoint[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
       seats.push({ zoneId: `${space.spaceId}-P${String(number).padStart(2, '0')}`, label: `${label} ${number}`, polygon });
     }
