@@ -178,7 +178,7 @@ export class BackendTwinGateway implements TwinGateway {
         throw new TypeError('Invalid twin event contract');
       }
       const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
-      if (existing) {
+      if (existing && Date.parse(state.updatedAt) >= Date.parse(existing.state.updatedAt)) {
         this.mergeTwin({ ...existing, state });
         this.publish();
       }
