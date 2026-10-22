@@ -49,6 +49,7 @@ export function savedKwh(state: HvacControlState, from: number, to: number, area
   requireFinite(from, 'from');
   requireFinite(to, 'to');
   requireNonNegative(areaSqm, 'areaSqm');
+  if (!Number.isFinite(new Date(from).getTime())) throw new RangeError('from must be a valid timestamp');
   if (to <= from) return 0;
   const end = from + Math.min(to - from, ENERGY.maxIntervalMinutes * 60_000);
   const actualFraction = powerFraction(state);
