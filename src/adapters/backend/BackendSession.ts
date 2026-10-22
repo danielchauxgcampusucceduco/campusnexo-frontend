@@ -35,7 +35,8 @@ function parseSessionInfo(value: unknown): SessionInfo {
   const validIdentity = session.authenticated === true
     ? typeof session.username === 'string' && session.username.length > 0 && ROLES.includes(session.role as Role)
     : session.authenticated === false && session.username === null && session.role === null;
-  const validExpiry = session.expiresAt === null || typeof session.expiresAt === 'string';
+  const validExpiry = session.expiresAt === null || (typeof session.expiresAt === 'string'
+    && session.expiresAt.length > 0 && Number.isFinite(Date.parse(session.expiresAt)));
   if (!validMode || !validIdentity || !validExpiry) {
     throw new BackendUnavailableError('El servidor devolvió una sesión inválida');
   }
