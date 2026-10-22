@@ -162,6 +162,23 @@ describe('BackendTwinGateway capabilities', () => {
     gateway.stop();
   });
 
+  it('keeps the first state when a duplicate event has the same timestamp', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const internal = gateway as unknown as { twins: { space: { spaceId: string }; state: { updatedAt: string; status: string } }[]; onTwin: (message: { body: string }) => void };
+    internal.twins = [{ space: { spaceId: 'A-301' }, state: { updatedAt: '2026-10-21T12:00:00Z', status: 'LIBRE' } }];
+
+    internal.onTwin({ body: JSON.stringify({
+      spaceId: 'A-301', status: 'OCUPADO_OPTIMO', hvacState: 'APAGADO', cameraOnline: true,
+      occupancy: 0, occupancyEstimate: 0, occupancyStdDev: 0, indoorTemperatureC: 20,
+      outdoorTemperatureC: 14, co2Ppm: 415, humidityPct: 55, energySavedKwh: 0,
+      illuminanceLux: 0, devicesOn: 0, devicesTotal: 0, maintenance: false, lightsOn: false,
+      desks: [], updatedAt: '2026-10-21T12:00:00Z',
+    }) });
+
+    expect(internal.twins[0]!.state.status).toBe('LIBRE');
+    gateway.stop();
+  });
+
   it('rejects trace events without an identifier', () => {
     const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
     const receive = gateway as unknown as { onTrace: (message: { body: string }) => void };
