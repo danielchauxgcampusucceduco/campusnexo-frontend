@@ -149,6 +149,9 @@ export class RoomPhysics {
 
   /** Places (or removes) the person of a desk; belongings stay unless cleared explicitly. */
   setDeskPerson(deskId: string, present: boolean, instant = false): void {
+    if (typeof present !== 'boolean' || typeof instant !== 'boolean') {
+      throw new RangeError('Desk presence and animation flags must be booleans');
+    }
     const current = this.agents.find((a) => a.deskId === deskId && a.objectClass === 'PERSON' && !a.leaving);
     if (present && !current) {
       const [x, y] = this.deskCenter(deskId);
