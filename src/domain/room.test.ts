@@ -24,4 +24,11 @@ describe('room condition policy', () => {
     expect(() => classifyRoom({ maintenance: false, people: 0, capacity: 0, lightsOn: false, devicesOn: 0 })).toThrow('capacity');
     expect(() => classifyRoom({ maintenance: false, people: 0, capacity: 40, lightsOn: false, devicesOn: 1.2 })).toThrow('devicesOn');
   });
+
+  it('rejects non-boolean room switches at the domain boundary', () => {
+    expect(() => classifyRoom({ maintenance: 'false', people: 0, capacity: 40, lightsOn: false, devicesOn: 0 } as never))
+      .toThrow('must be booleans');
+    expect(() => classifyRoom({ maintenance: false, people: 0, capacity: 40, lightsOn: 0, devicesOn: 0 } as never))
+      .toThrow('must be booleans');
+  });
 });
