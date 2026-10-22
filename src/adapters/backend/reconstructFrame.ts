@@ -19,6 +19,8 @@ function seeded(seed: string, index: number): number {
 export function reconstructFrame(twin: TwinSpace, realTimeMs: number): CameraFrame {
   if (!Number.isFinite(realTimeMs)) throw new RangeError('frame time must be finite');
   const { state, space, rois } = twin;
+  const capturedAt = Date.parse(state.updatedAt);
+  if (!Number.isFinite(capturedAt)) throw new RangeError('twin update time must be valid');
   const detections: TrackedDetection[] = [];
   let trackId = 1;
   const sway = (index: number) => Math.sin(realTimeMs / 900 + index * 1.7) * 0.0025;
@@ -50,5 +52,5 @@ export function reconstructFrame(twin: TwinSpace, realTimeMs: number): CameraFra
       detections.push({ trackId: trackId++, objectClass: 'PERSON', confidence: 0.84 + seeded(space.spaceId, i + 99) * 0.12, box: boxAround([x + jitter + sway(i), Math.min(0.95, y)], 0.045, 0.075) });
     }
   }
-  return { spaceId: space.spaceId, capturedAt: Date.parse(state.updatedAt), cameraOnline: state.cameraOnline, detections, origin: 'reconstruido-desde-gemelo' };
+  return { spaceId: space.spaceId, capturedAt, cameraOnline: state.cameraOnline, detections, origin: 'reconstruido-desde-gemelo' };
 }

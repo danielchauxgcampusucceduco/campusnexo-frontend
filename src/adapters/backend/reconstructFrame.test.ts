@@ -126,5 +126,6 @@ describe('reconstructFrame', () => {
 
   it('rejects a non-finite animation timestamp before synthesizing camera motion', () => {
     expect(() => reconstructFrame(twin(), Number.NaN)).toThrow('frame time must be finite');
+    expect(() => reconstructFrame(twin({ updatedAt: 'not-a-date' }), 0)).toThrow('twin update time');
   });
 });
