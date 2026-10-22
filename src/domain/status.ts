@@ -20,6 +20,9 @@ export function classifySpace(input: {
   now: number;
 }): SpaceStatus {
   const { maintenance, popUpActive, people, capacity, reservation, now } = input;
+  if (typeof maintenance !== 'boolean' || typeof popUpActive !== 'boolean') {
+    throw new RangeError('maintenance and popUpActive must be booleans');
+  }
   if (!Number.isSafeInteger(people) || people < 0) throw new RangeError('people must be a non-negative integer');
   if (!Number.isSafeInteger(capacity) || capacity <= 0) throw new RangeError('capacity must be a positive integer');
   if (!Number.isFinite(now)) throw new RangeError('now must be finite');
