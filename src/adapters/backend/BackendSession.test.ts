@@ -9,6 +9,7 @@ describe('fetchSession', () => {
     ['authenticated without identity', { mode: 'enforced', authenticated: true, username: null, role: null, expiresAt: null }],
     ['invalid role', { mode: 'enforced', authenticated: true, username: 'daniel', role: 'ROOT', expiresAt: null }],
     ['invalid authenticated flag', { mode: 'development', authenticated: 'yes', username: null, role: null, expiresAt: null }],
+    ['invalid expiry timestamp', { mode: 'enforced', authenticated: false, username: null, role: null, expiresAt: 'soon' }],
   ])('rejects a malformed session contract (%s)', async (_case, body) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(JSON.stringify(body), { status: 200 }),
