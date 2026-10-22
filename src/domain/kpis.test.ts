@@ -11,6 +11,20 @@ describe('energy accounting policy', () => {
     expect(savedKwh('BLOQUEO_AHORRO_VACIO', scheduleStart, scheduleStart + 60 * 60_000, 50)).toBeCloseTo(1.5, 9);
   });
 
+  it('splits telemetry intervals that cross the 07:00 Bogotá schedule boundary', () => {
+    const oneMinuteBeforeSeven = Date.parse('2026-10-21T11:59:00Z');
+
+    expect(savedKwh('BLOQUEO_AHORRO_VACIO', oneMinuteBeforeSeven, oneMinuteBeforeSeven + 2 * 60_000, 50))
+      .toBeCloseTo(0.1, 9);
+  });
+
+  it('stops scheduled baseline savings at the 21:00 Bogotá boundary', () => {
+    const oneMinuteBeforeNine = Date.parse('2026-10-22T01:59:00Z');
+
+    expect(savedKwh('BLOQUEO_AHORRO_VACIO', oneMinuteBeforeNine, oneMinuteBeforeNine + 2 * 60_000, 50))
+      .toBeCloseTo(0.1, 9);
+  });
+
   it('keeps fleet actual draw separate from the scheduled conventional baseline', () => {
     const space = { space: { areaSqm: 50 }, state: { hvacState: 'VENTILACION_CO2_ACTIVA' } } as never;
     const atSevenBogota = Date.parse('2026-10-21T12:00:00Z');
