@@ -68,5 +68,8 @@ export function seatGrid(space: CampusSpace): StudyZoneRoi[] {
 /** {@code 201-A} → block A, floor 2. */
 export function roomCode(spaceId: string): { block: string; floor: number; room: number } | null {
   const match = /^(\d)(\d{2})-([A-Za-z])$/.exec(spaceId);
-  return match ? { block: match[3]!.toUpperCase(), floor: Number(match[1]), room: Number(match[2]) } : null;
+  if (!match) return null;
+  const floor = Number(match[1]);
+  const room = Number(match[2]);
+  return floor > 0 && room > 0 ? { block: match[3]!.toUpperCase(), floor, room } : null;
 }
