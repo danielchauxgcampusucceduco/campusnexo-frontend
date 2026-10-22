@@ -10,6 +10,7 @@ export function evaluateDeskGhosting(
   previous: DeskObservation | undefined,
   now: number,
 ): DeskObservation {
+  if (!Number.isFinite(now)) throw new RangeError('evaluation time must be finite');
   let people = 0;
   let belongings = 0;
   for (const detection of detections) {
