@@ -25,4 +25,15 @@ describe('createGateway', () => {
     }), { status: 200 }))));
     await expect(createGateway(config('backend'))).rejects.toBeInstanceOf(LoginRequiredError);
   });
+
+  it('when simulation is explicitly selected, does not probe or contact the backend', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const gateway = await createGateway(config('backend'), 'simulation');
+
+    expect(gateway.mode).toBe('simulation');
+    expect(fetchMock).not.toHaveBeenCalled();
+    gateway.stop();
+  });
 });
