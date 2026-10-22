@@ -10,5 +10,5 @@ export default defineConfig({
       '/ws': { target: process.env.BACKEND_PROXY_TARGET ?? 'http://localhost:8080', ws: true, changeOrigin: true },
     },
   },
-  test: { environment: 'node', include: ['src/**/*.test.ts'] },
+  test: { environment: 'node', include: ['src/**/*.test.{ts,tsx}'] },
 });
