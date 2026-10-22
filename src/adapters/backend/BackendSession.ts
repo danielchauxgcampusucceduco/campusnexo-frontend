@@ -23,6 +23,23 @@ export class LoginRequiredError extends Error {}
 export class InvalidCredentialsError extends Error {}
 
 const STORAGE_KEY = 'campusnexo.session';
+const ROLES: readonly Role[] = ['VIEWER', 'OPERATOR', 'ADMIN', 'SENSOR'];
+
+function parseSessionInfo(value: unknown): SessionInfo {
+  if (typeof value !== 'object' || value === null) {
+    throw new BackendUnavailableError('El servidor devolvió una sesión inválida');
+  }
+  const session = value as Record<string, unknown>;
+  const validMode = session.mode === 'enforced' || session.mode === 'development';
+  const validIdentity = session.authenticated === true
+    ? typeof session.username === 'string' && session.username.length > 0 && ROLES.includes(session.role as Role)
+    : session.authenticated === false && session.username === null && session.role === null;
+  const validExpiry = session.expiresAt === null || typeof session.expiresAt === 'string';
+  if (!validMode || !validIdentity || !validExpiry) {
+    throw new BackendUnavailableError('El servidor devolvió una sesión inválida');
+  }
+  return session as unknown as SessionInfo;
+}
 
 export function storedToken(): string | null {
   try {
@@ -51,7 +68,7 @@ export async function fetchSession(apiBase: string, token: string | null, timeou
       headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
     if (!response.ok) throw new BackendUnavailableError(`El servidor respondió HTTP ${response.status}`);
-    return (await response.json()) as SessionInfo;
+    return parseSessionInfo(await response.json());
   } catch (error) {
     if (error instanceof BackendUnavailableError) throw error;
     throw new BackendUnavailableError(`No se pudo conectar con el servidor en ${apiBase}`);
