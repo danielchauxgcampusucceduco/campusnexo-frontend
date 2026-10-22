@@ -38,4 +38,10 @@ describe('geometry helpers', () => {
     expect(() => boxAround([0.5, 0.5], -1, 0.2)).toThrow(RangeError);
     expect(() => boxAround([0.5, 0.5], Number.POSITIVE_INFINITY, 0.2)).toThrow(RangeError);
   });
+
+  it('rejects unordered or out-of-frame detection boxes before computing centers', () => {
+    expect(() => boxCenter({ xMin: 0.8, yMin: 0.2, xMax: 0.3, yMax: 0.8 })).toThrow('ordered');
+    expect(() => boxCenter({ xMin: 0, yMin: 0, xMax: 1.1, yMax: 1 })).toThrow('normalized');
+    expect(() => boxCenter({ xMin: 0, yMin: Number.NaN, xMax: 1, yMax: 1 })).toThrow('finite');
+  });
 });
