@@ -7,6 +7,7 @@ import type {
   SpaceTwinState,
   TwinSpace,
 } from '../../domain/model';
+import { HVAC_CONTROL_STATES, SPACE_STATUSES } from '../../domain/model';
 import { SCENARIO_CATALOG } from '../../domain/scenarios';
 import type { CameraFrame, ConnectionState, GatewayCapabilities, GatewayUser, TwinGateway, TwinSnapshot } from '../../ports/TwinGateway';
 import { reconstructFrame } from './reconstructFrame';
@@ -14,6 +15,11 @@ import { reconstructFrame } from './reconstructFrame';
 const MAX_TRACES = 40;
 const SAVINGS_REFRESH_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 10_000;
+const TWIN_NUMERIC_FIELDS = [
+  'occupancy', 'occupancyEstimate', 'occupancyStdDev', 'indoorTemperatureC', 'outdoorTemperatureC',
+  'co2Ppm', 'humidityPct', 'energySavedKwh', 'illuminanceLux', 'devicesOn', 'devicesTotal',
+] as const;
+const TWIN_BOOLEAN_FIELDS = ['cameraOnline', 'maintenance', 'lightsOn'] as const;
 
 interface SimulationResponse {
   scenario: SimulationScenario;
@@ -173,7 +179,12 @@ export class BackendTwinGateway implements TwinGateway {
     try {
       const state = JSON.parse(message.body) as SpaceTwinState;
       if (!state || typeof state !== 'object' || typeof state.spaceId !== 'string'
-          || typeof state.cameraOnline !== 'boolean' || !Number.isSafeInteger(state.occupancy) || state.occupancy < 0
+          || !state.spaceId.trim() || !SPACE_STATUSES.includes(state.status)
+          || !HVAC_CONTROL_STATES.includes(state.hvacState)
+          || !TWIN_NUMERIC_FIELDS.every((field) => Number.isFinite(state[field]))
+          || !TWIN_BOOLEAN_FIELDS.every((field) => typeof state[field] === 'boolean')
+          || !Number.isSafeInteger(state.occupancy) || state.occupancy < 0
+          || !Array.isArray(state.desks) || typeof state.updatedAt !== 'string'
           || !Number.isFinite(Date.parse(state.updatedAt))) {
         throw new TypeError('Invalid twin event contract');
       }
