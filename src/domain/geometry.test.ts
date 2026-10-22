@@ -44,4 +44,9 @@ describe('geometry helpers', () => {
     expect(() => boxCenter({ xMin: 0, yMin: 0, xMax: 1.1, yMax: 1 })).toThrow('normalized');
     expect(() => boxCenter({ xMin: 0, yMin: Number.NaN, xMax: 1, yMax: 1 })).toThrow('finite');
   });
+
+  it('rejects non-normalized ROI coordinates and query points', () => {
+    expect(() => containsPoint([[0, 0], [2, 0], [1, 1]], [0.5, 0.5])).toThrow('polygon points');
+    expect(() => containsPoint(square, [Number.NaN, 0.5])).toThrow('point');
+  });
 });
