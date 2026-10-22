@@ -1,5 +1,5 @@
 import { boxAround, polygonCentroid } from '../../domain/geometry';
-import { COMPRESSOR_ON, type CampusSpace, type DetectedObjectClass, type HvacControlState, type NormalizedPoint, type StudyZoneRoi, type TrackedDetection } from '../../domain/model';
+import { COMPRESSOR_ON, HVAC_POWER_FRACTION, type CampusSpace, type DetectedObjectClass, type HvacControlState, type NormalizedPoint, type StudyZoneRoi, type TrackedDetection } from '../../domain/model';
 import { THERMAL_PARAMETERS } from '../../domain/thermal';
 import { LIBRARY_ID } from './campusSeed';
 
@@ -200,6 +200,7 @@ export class RoomPhysics {
 
   /** Simulated-time physics step (minutes) under the current HVAC strategy. */
   integrate(minutes: number, hvacState: HvacControlState, setpointC: number): void {
+    if (!Object.hasOwn(HVAC_POWER_FRACTION, hvacState)) throw new RangeError(`unknown HVAC state: ${String(hvacState)}`);
     if (!Number.isFinite(minutes) || minutes < 0 || !Number.isFinite(setpointC)) {
       throw new RangeError('La integración térmica requiere duración y setpoint finitos');
     }
