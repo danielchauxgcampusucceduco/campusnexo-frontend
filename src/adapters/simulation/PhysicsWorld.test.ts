@@ -66,6 +66,13 @@ describe('RoomPhysics', () => {
     expect(room).toMatchObject(before);
   });
 
+  it('rejects invalid camera simulation inputs before producing detections', () => {
+    const room = physics();
+
+    expect(() => room.detections(false, Number.NaN)).toThrow('sway time must be valid');
+    expect(() => room.detections(1 as never, 0)).toThrow('noise flag and sway time must be valid');
+  });
+
   it('rejects people and unbounded object lists as desk belongings', () => {
     const room = physics();
     const deskId = room.rois[0]!.zoneId;
