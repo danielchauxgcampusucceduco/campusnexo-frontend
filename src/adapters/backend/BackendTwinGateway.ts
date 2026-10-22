@@ -118,7 +118,7 @@ export class BackendTwinGateway implements TwinGateway {
 
   /** The backend only receives the room state from its Arduino; the dashboard cannot switch the lights. */
   setLights(): void {
-    // Intentionally empty: capability lightControl is false.
+    throw new Error('Las luces solo se controlan desde el interruptor del salón');
   }
 
   setCameraOnline(): void {
