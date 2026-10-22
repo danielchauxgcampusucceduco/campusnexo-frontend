@@ -13,6 +13,8 @@ describe('RoomPhysics', () => {
 
     expect(() => room.setFreePeople(-1)).toThrow(RangeError);
     expect(() => room.setFreePeople(1.5)).toThrow(RangeError);
+    expect(() => room.setFreePeople(Number.MAX_SAFE_INTEGER)).toThrow(RangeError);
+    expect(room.people()).toHaveLength(0);
   });
 
   it('adds and removes the requested free people immediately', () => {
