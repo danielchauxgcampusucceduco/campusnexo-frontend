@@ -30,6 +30,8 @@ La UI solo conoce el puerto `TwinGateway`. Al iniciar, `createGateway` consulta 
 
 `BackendTwinGateway` usa REST para consultas y escenarios, y STOMP sobre WebSocket (`/topic/twin`, `/topic/traces`) para actualizaciones. `InMemoryPhysicsGateway` es un motor físico (personas, CO₂ y temperatura con el mismo modelo RC del MPC) que alimenta frames YOLO sintéticos a una versión TypeScript del pipeline del gemelo.
 
+El adaptador valida los campos numéricos, booleanos y enumerados requeridos de cada evento de gemelo, descarta eventos atrasados comparando `updatedAt` y marca la conexión degradada si recibe JSON o contratos inválidos. Las respuestas de sesión también deben traer una expiración nula o una fecha interpretable.
+
 El dominio TypeScript replica la matemática del backend, y `src/domain/domain.test.ts` usa los mismos casos que los tests de Java para que ambas implementaciones coincidan.
 
 El cálculo de energía compara cada estado HVAC con el consumo nominal durante el horario convencional de Bogotá (07:00–21:00). Cada lectura acredita como máximo 15 minutos y se divide al cruzar el inicio o fin del horario, para no atribuir ahorro fuera de la franja. Tarifas y factor de emisión son valores ilustrativos; no representan una factura ni una medición eléctrica certificada.
