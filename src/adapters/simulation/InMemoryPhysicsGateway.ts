@@ -133,6 +133,7 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   }
 
   setTimeScale(scale: number): void {
+    if (!Number.isFinite(scale)) throw new RangeError('La escala de tiempo debe ser finita');
     this.scale = Math.min(300, Math.max(1, scale));
     this.publish();
   }
