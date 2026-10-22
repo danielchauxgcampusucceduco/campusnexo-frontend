@@ -29,6 +29,8 @@ export function comfortBand(profile: ClimateProfile): ComfortBand {
       return { lowC: 23, highC: 26 };
     case 'SEDE_TEMPLADA':
       return { lowC: 20, highC: 25 };
+    default:
+      throw new RangeError(`unsupported climate profile: ${String(profile)}`);
   }
 }
 
