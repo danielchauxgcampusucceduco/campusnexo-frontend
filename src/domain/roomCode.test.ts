@@ -10,4 +10,8 @@ describe('room code parser', () => {
   it.each(['A-203', '203-AA', '203-', '203-A-extra', ''])('rejects malformed room code %j', (value) => {
     expect(roomCode(value)).toBeNull();
   });
+
+  it.each(['003-A', '200-A'])('rejects zero floor or room identifiers %j', (value) => {
+    expect(roomCode(value)).toBeNull();
+  });
 });
