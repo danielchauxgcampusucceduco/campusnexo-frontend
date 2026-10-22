@@ -80,4 +80,24 @@ describe('BackendTwinGateway capabilities', () => {
     expect(gateway.getSnapshot().connection).toBe('degraded');
     gateway.stop();
   });
+
+  it('rejects syntactically valid but incomplete twin event payloads', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const receive = gateway as unknown as { onTwin: (message: { body: string }) => void };
+
+    expect(() => receive.onTwin({ body: JSON.stringify({ spaceId: 'A-301', occupancy: -4 }) })).not.toThrow();
+    expect(gateway.getSnapshot().twins).toEqual([]);
+    expect(gateway.getSnapshot().connection).toBe('degraded');
+    gateway.stop();
+  });
+
+  it('rejects trace events without an identifier', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const receive = gateway as unknown as { onTrace: (message: { body: string }) => void };
+
+    expect(() => receive.onTrace({ body: JSON.stringify({}) })).not.toThrow();
+    expect(gateway.getSnapshot().traces).toEqual([]);
+    expect(gateway.getSnapshot().connection).toBe('degraded');
+    gateway.stop();
+  });
 });
