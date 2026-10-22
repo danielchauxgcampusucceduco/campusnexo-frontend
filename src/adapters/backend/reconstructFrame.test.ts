@@ -111,4 +111,20 @@ describe('reconstructFrame', () => {
 
     expect(reconstructFrame(input, 0).detections).toHaveLength(2);
   });
+
+  it('bounds reconstructed detections for corrupt desk counts', () => {
+    const input = twin({
+      occupancy: 40,
+      desks: [{
+        zoneId: 'Z1', state: 'OCUPADO_VERIFICADO', peopleInside: 1_000_000, belongingsInside: 1_000_000,
+        unattendedSince: null, unattendedMinutes: 0, evaluatedAt: '2026-10-21T12:00:00Z',
+      }],
+    }, [roi]);
+
+    expect(reconstructFrame(input, 0).detections).toHaveLength(120);
+  });
+
+  it('rejects a non-finite animation timestamp before synthesizing camera motion', () => {
+    expect(() => reconstructFrame(twin(), Number.NaN)).toThrow('frame time must be finite');
+  });
 });
