@@ -22,6 +22,16 @@ describe('campus de la simulación local', () => {
     expect(twins.find((t) => t.space.spaceId === '421-A')!.rois).toHaveLength(36);
     expect(twins.find((t) => t.space.spaceId === '4A-SALA-DE-JUNTAS-GALERAS')!.rois).toHaveLength(0);
   });
+
+  it('clamps the simulation clock to its supported range and rejects NaN', () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+
+    gateway.setTimeScale(0);
+    expect(gateway.timeScale()).toBe(1);
+    gateway.setTimeScale(500);
+    expect(gateway.timeScale()).toBe(300);
+    expect(() => gateway.setTimeScale(Number.NaN)).toThrow(RangeError);
+  });
 });
 
 describe('escenarios de la simulación local', () => {
