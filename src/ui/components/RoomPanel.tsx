@@ -2,7 +2,7 @@ import { Cctv, CameraOff, Snowflake, Users } from 'lucide-react';
 import { floorName, planRoom } from '../../campus/plan';
 import type { TwinSpace } from '../../domain/model';
 import { navigate } from '../StageContext';
-import { CONDITION_META, HVAC_META, SPACE_TYPE_LABEL, STATUS_META } from '../theme';
+import { CONDITION_META, HVAC_META, HVAC_MODE_LABEL, SPACE_TYPE_LABEL, STATUS_META } from '../theme';
 import { ArduinoPanel } from './ArduinoPanel';
 import { CountUp } from './CountUp';
 import { SeatMap } from './SeatMap';
@@ -49,6 +49,13 @@ export function RoomPanel({ twin }: { twin: TwinSpace }) {
         <p className="flex items-center gap-2 text-sm font-semibold"><Snowflake className="h-4 w-4 text-ink-soft" />Clima</p>
         <p className="mt-1 text-base font-medium" style={{ color: HVAC_META[state.hvacState].ink }}>{HVAC_META[state.hvacState].label}</p>
         <p className="text-sm text-ink-soft">{HVAC_META[state.hvacState].hint}.</p>
+        {space.hvacInstalled && (
+          <p className="mt-2 text-sm">
+            <b>{HVAC_MODE_LABEL[state.hvacMode]}</b>
+            {state.hvacMode !== 'APAGADO' ? ` hacia ${state.hvacSetpointC.toLocaleString('es-CO', { maximumFractionDigits: 1 })} °C` : ''}
+          </p>
+        )}
+        {state.hvacReason && <p className="mt-1 text-xs text-ink-soft">{state.hvacReason}</p>}
       </div>
 
       <button type="button" onClick={() => navigate('salon')}

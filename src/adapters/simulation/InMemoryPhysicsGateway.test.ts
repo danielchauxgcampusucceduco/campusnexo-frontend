@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SimulationScenario } from '../../domain/model';
 import { InMemoryPhysicsGateway } from './InMemoryPhysicsGateway';
 
@@ -14,7 +14,25 @@ async function stateAfter(scenario: SimulationScenario, spaceId: string) {
 
 const seated = (state: { desks: { state: string }[] }) => state.desks.filter((d) => d.state === 'OCUPADO_VERIFICADO').length;
 
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
 describe('campus de la simulación local', () => {
+  it('rejects an invalid initial simulation clock before building room state', () => {
+    expect(() => new InMemoryPhysicsGateway(Number.NaN)).toThrow('marca de tiempo válida');
+    expect(() => new InMemoryPhysicsGateway(1e100)).toThrow('marca de tiempo válida');
+  });
+
+  it('rejects non-boolean camera controls without changing the room state', () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+    const cameraOnline = gateway.getSnapshot().twins.find((t) => t.space.spaceId === '421-A')!.state.cameraOnline;
+
+    expect(() => gateway.setCameraOnline('421-A', 0 as never)).toThrow('estado de la cámara');
+    expect(gateway.getSnapshot().twins.find((t) => t.space.spaceId === '421-A')!.state.cameraOnline).toBe(cameraOnline);
+  });
+
   it('tiene los salones del plano en los bloques A y B con sus pupitres', () => {
     const twins = new InMemoryPhysicsGateway(START).getSnapshot().twins;
     expect(twins).toHaveLength(107);
@@ -22,9 +40,67 @@ describe('campus de la simulación local', () => {
     expect(twins.find((t) => t.space.spaceId === '421-A')!.rois).toHaveLength(36);
     expect(twins.find((t) => t.space.spaceId === '4A-SALA-DE-JUNTAS-GALERAS')!.rois).toHaveLength(0);
   });
+
+  it('clamps the simulation clock to its supported range and rejects NaN', () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+
+    gateway.setTimeScale(0);
+    expect(gateway.timeScale()).toBe(1);
+    gateway.setTimeScale(500);
+    expect(gateway.timeScale()).toBe(300);
+    expect(() => gateway.setTimeScale(Number.NaN)).toThrow(RangeError);
+  });
+
+  it('starts one clock, stops it cleanly and does not publish after disposal', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(START);
+    vi.spyOn(performance, 'now').mockImplementation(() => Date.now());
+    const gateway = new InMemoryPhysicsGateway(START);
+    gateway.setTimeScale(60);
+    await gateway.start();
+    await gateway.start();
+    const startedAt = gateway.getSnapshot().now;
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    const tickedAt = gateway.getSnapshot().now;
+    gateway.stop();
+    const stoppedAt = gateway.getSnapshot().now;
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(tickedAt - startedAt).toBe(60_000);
+    expect(gateway.getSnapshot().now).toBe(stoppedAt);
+  });
+
+  it('publishes camera-off state and continues occupancy fusion without camera measurements', () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+
+    gateway.setCameraOnline('421-A', false);
+
+    const room = gateway.getSnapshot().twins.find((t) => t.space.spaceId === '421-A')!;
+    expect(room.state.cameraOnline).toBe(false);
+    expect(room.state.kalman?.measurements.every((measurement) => measurement.source !== 'CAMARA_YOLO')).toBe(true);
+  });
+
+  it('restores camera observations after the camera reconnects', () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+    gateway.setCameraOnline('421-A', false);
+    gateway.setCameraOnline('421-A', true);
+
+    const room = gateway.getSnapshot().twins.find((t) => t.space.spaceId === '421-A')!;
+    expect(room.state.cameraOnline).toBe(true);
+    expect(room.state.kalman?.measurements.some((measurement) => measurement.source === 'CAMARA_YOLO')).toBe(true);
+  });
 });
 
 describe('escenarios de la simulación local', () => {
+  it('rejects unknown scenarios before changing the simulation snapshot', async () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+    const before = gateway.getSnapshot();
+
+    await expect(gateway.runScenario('UNKNOWN' as never)).rejects.toThrow('Escenario desconocido');
+    expect(gateway.getSnapshot()).toBe(before);
+  });
+
   it('clase en curso: 26 pupitres ocupados y luces encendidas', async () => {
     const { state, trace } = await stateAfter('CLASE_EN_CURSO', '421-A');
     expect(state.status).toBe('OCUPADO_OPTIMO');
@@ -78,6 +154,42 @@ describe('escenarios de la simulación local', () => {
     const { state } = await stateAfter('FALLO_CAMARA', '421-A');
     expect(state.cameraOnline).toBe(false);
     expect(state.kalman?.measurements).toHaveLength(2);
+  });
+
+  it('un espacio sin equipo de clima nunca se climatiza ni acumula ahorro', () => {
+    const twins = new InMemoryPhysicsGateway(START).getSnapshot().twins;
+    const withoutUnit = twins.filter((t) => !t.space.hvacInstalled);
+    expect(withoutUnit.length).toBeGreaterThan(0);
+    expect(twins.filter((t) => t.space.hvacInstalled)).toHaveLength(63);
+    for (const twin of withoutUnit) {
+      expect(twin.state.hvacState).toBe('SIN_CLIMATIZACION');
+      expect(twin.state.energySavedKwh).toBe(0);
+    }
+  });
+
+  it('cada estrategia declara el modo del equipo y la regla que decidió', async () => {
+    const { state } = await stateAfter('OVERRIDE_DOCENTE', '420-A');
+    expect(state.hvacMode).not.toBe('APAGADO');
+    expect(state.hvacReason).toContain('Control manual del docente');
+    const { trace } = await stateAfter('CLASE_EN_CURSO', '421-A');
+    expect(trace?.steps.some((s) => s.component === 'HvacSettingChain')).toBe(true);
+  });
+
+  it('reiniciar solo toca los salones de la demostración', async () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+    const camera = (spaceId: string) => gateway.getSnapshot().twins.find((t) => t.space.spaceId === spaceId)!.state.cameraOnline;
+    const outsideId = gateway.getSnapshot().twins.find((t) => !t.space.simulationAllowed && t.rois.length > 0)!.space.spaceId;
+    gateway.setCameraOnline(outsideId, false);
+    gateway.setCameraOnline('421-A', false);
+    await gateway.runScenario('REINICIAR');
+    expect(camera('421-A')).toBe(true);
+    expect(camera(outsideId)).toBe(false);
+    expect(gateway.getSnapshot().twins.filter((t) => t.space.simulationAllowed)).toHaveLength(11);
+  });
+
+  it('las reservas de un escenario tienen origen SIMULACION', async () => {
+    const { twin } = await stateAfter('CLASE_EN_CURSO', '421-A');
+    expect(twin.activeReservation?.origin).toBe('SIMULACION');
   });
 
   it('el check-in pone a un estudiante en la mesa', async () => {

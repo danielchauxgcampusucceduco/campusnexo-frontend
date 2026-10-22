@@ -20,12 +20,14 @@ export type SpaceStatus = (typeof SPACE_STATUSES)[number];
 export const HVAC_CONTROL_STATES = [
   'APAGADO',
   'PRE_ENFRIAMIENTO_IA',
+  'PRE_CALENTAMIENTO_IA',
   'CONFORT_ACTIVO',
   'ECO_SETBACK_ENTRE_CLASES',
   'CORTE_INERCIA_TERMICA',
   'BLOQUEO_AHORRO_VACIO',
   'VENTILACION_CO2_ACTIVA',
   'OVERRIDE_MANUAL_DOCENTE',
+  'SIN_CLIMATIZACION',
 ] as const;
 export type HvacControlState = (typeof HVAC_CONTROL_STATES)[number];
 
@@ -33,20 +35,27 @@ export type HvacControlState = (typeof HVAC_CONTROL_STATES)[number];
 export const HVAC_POWER_FRACTION: Record<HvacControlState, number> = {
   APAGADO: 0,
   PRE_ENFRIAMIENTO_IA: 1,
+  PRE_CALENTAMIENTO_IA: 1,
   CONFORT_ACTIVO: 1,
   ECO_SETBACK_ENTRE_CLASES: 0.4,
   CORTE_INERCIA_TERMICA: 0,
   BLOQUEO_AHORRO_VACIO: 0,
   VENTILACION_CO2_ACTIVA: 0.25,
   OVERRIDE_MANUAL_DOCENTE: 1,
+  SIN_CLIMATIZACION: 0,
 };
 
 export const COMPRESSOR_ON: ReadonlySet<HvacControlState> = new Set([
   'PRE_ENFRIAMIENTO_IA',
+  'PRE_CALENTAMIENTO_IA',
   'CONFORT_ACTIVO',
   'ECO_SETBACK_ENTRE_CLASES',
   'OVERRIDE_MANUAL_DOCENTE',
 ]);
+
+/** Java: edu.campusnexo.domain.climate.HvacMode — what the unit does inside a strategy. */
+export const HVAC_MODES = ['APAGADO', 'CALEFACCION', 'ENFRIAMIENTO', 'DESHUMIDIFICACION'] as const;
+export type HvacMode = (typeof HVAC_MODES)[number];
 
 export type ZoneDeskState = 'DISPONIBLE' | 'OCUPADO_VERIFICADO' | 'ALERTA_ACAPARAMIENTO' | 'LIBERADO_POR_ABANDONO';
 export type DetectedObjectClass = 'PERSON' | 'LAPTOP' | 'BACKPACK' | 'BOOK';
@@ -103,6 +112,10 @@ export interface CampusSpace {
   /** Seat grid seen by the ceiling camera; null for offices and storage rooms. */
   seatRows: number | null;
   seatColumns: number | null;
+  /** The room has a climate unit the twin can command (Flyway V15). */
+  hvacInstalled: boolean;
+  /** The live demonstration may change this room (Flyway V15). */
+  simulationAllowed: boolean;
 }
 
 /** Normalized image point, [x, y] in 0..1. */
@@ -164,7 +177,11 @@ export interface Reservation {
   endsAt: string;
   expectedAttendees: number;
   reference: string;
+  /** Java: ReservationOrigin — created by a person or by a demonstration scenario. */
+  origin: ReservationOrigin;
 }
+
+export type ReservationOrigin = 'USUARIO' | 'SIMULACION';
 
 /** Java: DeskObservation (TwinContracts.DeskResponse). */
 export interface DeskObservation {
@@ -198,6 +215,7 @@ export interface KalmanStep {
 /** Java: ThermalDecision (TwinContracts.ThermalResponse). */
 export interface ThermalDecision {
   recommendedState: HvacControlState;
+  mode: HvacMode;
   setpointC: number;
   horizonMinutes: number;
   stepMinutes: number;
@@ -211,6 +229,10 @@ export interface SpaceTwinState {
   status: SpaceStatus;
   hvacState: HvacControlState;
   hvacStateSince: string;
+  /** What the unit is doing in that strategy, its setpoint and the rule that decided it (Java: HvacSetting). */
+  hvacMode: HvacMode;
+  hvacSetpointC: number;
+  hvacReason: string;
   occupancy: number;
   occupancyEstimate: number;
   occupancyStdDev: number;

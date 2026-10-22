@@ -7,12 +7,19 @@ import type {
   SpaceTwinState,
   TwinSpace,
 } from '../../domain/model';
+import { HVAC_CONTROL_STATES, HVAC_MODES, SPACE_STATUSES } from '../../domain/model';
 import { SCENARIO_CATALOG } from '../../domain/scenarios';
 import type { CameraFrame, ConnectionState, GatewayCapabilities, GatewayUser, TwinGateway, TwinSnapshot } from '../../ports/TwinGateway';
 import { reconstructFrame } from './reconstructFrame';
 
 const MAX_TRACES = 40;
 const SAVINGS_REFRESH_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 10_000;
+const TWIN_NUMERIC_FIELDS = [
+  'occupancy', 'occupancyEstimate', 'occupancyStdDev', 'indoorTemperatureC', 'outdoorTemperatureC',
+  'co2Ppm', 'humidityPct', 'energySavedKwh', 'illuminanceLux', 'devicesOn', 'devicesTotal', 'hvacSetpointC',
+] as const;
+const TWIN_BOOLEAN_FIELDS = ['cameraOnline', 'maintenance', 'lightsOn'] as const;
 
 interface SimulationResponse {
   scenario: SimulationScenario;
@@ -117,7 +124,7 @@ export class BackendTwinGateway implements TwinGateway {
 
   /** The backend only receives the room state from its Arduino; the dashboard cannot switch the lights. */
   setLights(): void {
-    // Intentionally empty: capability lightControl is false.
+    throw new Error('Las luces solo se controlan desde el interruptor del salón');
   }
 
   setCameraOnline(): void {
@@ -169,17 +176,41 @@ export class BackendTwinGateway implements TwinGateway {
   }
 
   private onTwin(message: IMessage): void {
-    const state = JSON.parse(message.body) as SpaceTwinState;
-    const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
-    if (existing) {
-      this.mergeTwin({ ...existing, state });
+    try {
+      const state = JSON.parse(message.body) as SpaceTwinState;
+      if (!state || typeof state !== 'object' || typeof state.spaceId !== 'string'
+          || !state.spaceId.trim() || state.spaceId !== state.spaceId.trim() || !SPACE_STATUSES.includes(state.status)
+          || !HVAC_CONTROL_STATES.includes(state.hvacState) || !HVAC_MODES.includes(state.hvacMode)
+          || !TWIN_NUMERIC_FIELDS.every((field) => Number.isFinite(state[field]))
+          || !TWIN_BOOLEAN_FIELDS.every((field) => typeof state[field] === 'boolean')
+          || !Number.isSafeInteger(state.occupancy) || state.occupancy < 0
+          || !Array.isArray(state.desks) || typeof state.updatedAt !== 'string'
+          || !Number.isFinite(Date.parse(state.updatedAt))) {
+        throw new TypeError('Invalid twin event contract');
+      }
+      const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
+      if (existing && Date.parse(state.updatedAt) > Date.parse(existing.state.updatedAt)) {
+        this.mergeTwin({ ...existing, state });
+        this.publish();
+      }
+    } catch {
+      this.connection = 'degraded';
       this.publish();
     }
   }
 
   private onTrace(message: IMessage): void {
-    this.addTrace(JSON.parse(message.body) as ArchitectureTrace);
-    this.publish();
+    try {
+      const trace = JSON.parse(message.body) as ArchitectureTrace;
+      if (!trace || typeof trace !== 'object' || typeof trace.traceId !== 'string' || trace.traceId.length === 0) {
+        throw new TypeError('Invalid trace event contract');
+      }
+      this.addTrace(trace);
+      this.publish();
+    } catch {
+      this.connection = 'degraded';
+      this.publish();
+    }
   }
 
   private mergeTwin(twin: TwinSpace): void {
@@ -209,7 +240,19 @@ export class BackendTwinGateway implements TwinGateway {
   private async send<T>(path: string, method: 'GET' | 'POST'): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
-    const response = await fetch(`${this.apiBase}${path}`, { method, headers });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(`${this.apiBase}${path}`, { method, headers, signal: controller.signal });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new BackendError(0, 'El servidor tardó demasiado en responder');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     if (response.status === 401) {
       // Expired or revoked session: stop pushing stale data and ask the person to sign in again.
       this.connection = 'unauthorized';
@@ -226,7 +269,11 @@ export class BackendTwinGateway implements TwinGateway {
       }
       throw new BackendError(response.status, detail);
     }
-    return (await response.json()) as T;
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new BackendError(response.status, 'El servidor devolvió una respuesta JSON inválida');
+    }
   }
 
   private publish(): void {

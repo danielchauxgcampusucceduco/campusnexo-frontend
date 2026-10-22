@@ -30,7 +30,11 @@ La UI solo conoce el puerto `TwinGateway`. Al iniciar, `createGateway` consulta 
 
 `BackendTwinGateway` usa REST para consultas y escenarios, y STOMP sobre WebSocket (`/topic/twin`, `/topic/traces`) para actualizaciones. `InMemoryPhysicsGateway` es un motor físico (personas, CO₂ y temperatura con el mismo modelo RC del MPC) que alimenta frames YOLO sintéticos a una versión TypeScript del pipeline del gemelo.
 
-El dominio TypeScript replica la matemática del backend, y `src/domain/domain.test.ts` usa los mismos casos que los tests de Java para que ambas implementaciones coincidan.
+El adaptador valida los campos numéricos, booleanos y enumerados requeridos de cada evento de gemelo, descarta eventos atrasados comparando `updatedAt` y marca la conexión degradada si recibe JSON o contratos inválidos. Las respuestas de sesión también deben traer una expiración nula o una fecha interpretable.
+
+El dominio TypeScript replica la matemática del backend, y `src/domain/domain.test.ts` usa los mismos casos que los tests de Java para que ambas implementaciones coincidan. El clima sigue el mismo camino que en Java: el MPC (`thermal.ts`, con pre-calentamiento y pre-enfriamiento) propone y la cadena de reglas (`hvac.ts`: sin equipo → mantenimiento → docente → compresor → familia → MPC) decide la estrategia, el modo del equipo y el setpoint. Los espacios sin equipo (`hvacInstalled`) quedan `SIN_CLIMATIZACION` y no cuentan ahorro; `REINICIAR` solo toca los 11 salones de la demostración (`simulationAllowed`).
+
+El cálculo de energía compara cada estado HVAC con el consumo nominal durante el horario convencional de Bogotá (07:00–21:00). Cada lectura acredita como máximo 15 minutos y se divide al cruzar el inicio o fin del horario, para no atribuir ahorro fuera de la franja. Tarifas y factor de emisión son valores ilustrativos; no representan una factura ni una medición eléctrica certificada.
 
 ## Vistas
 
@@ -61,7 +65,7 @@ Con el modo presentación activo (tecla `P`, activo por defecto), cada escenario
 ```sh
 npm install
 npm run dev          # http://localhost:5173; /api y /ws se envían a localhost:8080
-npm test             # tests del dominio y de la simulación
+npm test             # tests del dominio, la simulación y las vistas (también en CI: .github/workflows/ci.yml)
 npm run build        # tsc + bundle de producción en dist/
 ```
 

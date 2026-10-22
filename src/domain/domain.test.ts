@@ -52,12 +52,44 @@ describe('Kalman', () => {
     expect(offline.step.measurements).toHaveLength(2);
     expect(offline.posterior.variance).toBeGreaterThan(online.posterior.variance);
   });
+
+  it('rechaza timestamps regresivos y medidas no finitas antes de mutar el cálculo', () => {
+    const belief = uninformedBelief(T0, 32);
+    expect(() => kalmanUpdate(belief, { ...snapshot(false, 0), capturedAt: T0 - 1 }, { capacity: 32, areaSqm: 48 })).toThrow(RangeError);
+    expect(() => kalmanUpdate(belief, { ...snapshot(false, 0), co2Ppm: Number.NaN }, { capacity: 32, areaSqm: 48 })).toThrow(RangeError);
+  });
+
+  it('requires positive floor area for CO2 mass-balance conversion', () => {
+    expect(() => kalmanUpdate(uninformedBelief(T0, 32), snapshot(false, 0), { capacity: 32, areaSqm: 0 })).toThrow(RangeError);
+    expect(() => uninformedBelief(T0, 1.5)).toThrow('capacity must be a non-negative integer');
+    expect(() => kalmanUpdate(uninformedBelief(T0, 32), snapshot(false, 0), { capacity: 2.5, areaSqm: 48 })).toThrow(RangeError);
+  });
 });
 
 describe('MPC térmico', () => {
   it('converge a la temperatura exterior', () => {
     const trajectory = freeRunning(30, 20, 0, 50, 600);
     expect(trajectory.at(-1)!).toBeLessThan(20.2);
+  });
+
+  it('rejects unknown climate profiles at the domain boundary', () => {
+    expect(() => comfortBand('UNKNOWN' as never)).toThrow('unsupported climate profile');
+  });
+
+  it('rechaza contexto térmico no finito, áreas nulas y horizontes negativos', () => {
+    expect(() => freeRunning(20, 14, 0, 0, 10)).toThrow(RangeError);
+    expect(() => freeRunning(Number.NaN, 14, 0, 50, 10)).toThrow(RangeError);
+    expect(() => freeRunning(20, 14, 0, 50, -1)).toThrow(RangeError);
+    expect(() => decideThermal({
+      indoorTemperatureC: 20,
+      outdoorTemperatureC: 14,
+      occupants: 0,
+      areaSqm: 50,
+      co2Ppm: 400,
+      band: { lowC: 25, highC: 20 },
+      minutesUntilOccupancyEnds: null,
+      minutesUntilNextOccupancy: null,
+    })).toThrow(RangeError);
   });
 
   it('elige las mismas estrategias que el servicio Java', () => {
@@ -70,6 +102,21 @@ describe('MPC térmico', () => {
     expect(preCool.recommendedState).toBe('PRE_ENFRIAMIENTO_IA');
     expect(preCool.setpointC).toBe(25.5);
     expect(decideThermal({ indoorTemperatureC: 27, outdoorTemperatureC: 31.8, occupants: 0, areaSqm: 72, co2Ppm: 440, band: tropical, minutesUntilOccupancyEnds: null, minutesUntilNextOccupancy: null }).recommendedState).toBe('BLOQUEO_AHORRO_VACIO');
+  });
+
+  it('restores comfort immediately when occupied temperatures leave either band edge', () => {
+    const band = comfortBand('SEDE_ANDINA');
+    const base = {
+      outdoorTemperatureC: 14, occupants: 20, areaSqm: 48, co2Ppm: 500,
+      band, minutesUntilOccupancyEnds: 30, minutesUntilNextOccupancy: null,
+    };
+    const tooWarm = decideThermal({ ...base, indoorTemperatureC: 25 });
+    const tooCold = decideThermal({ ...base, indoorTemperatureC: 18 });
+
+    expect(tooWarm.recommendedState).toBe('CONFORT_ACTIVO');
+    expect(tooWarm.setpointC).toBe(23);
+    expect(tooCold.recommendedState).toBe('CONFORT_ACTIVO');
+    expect(tooCold.setpointC).toBe(20);
   });
 });
 

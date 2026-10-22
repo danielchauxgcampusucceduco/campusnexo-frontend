@@ -1,4 +1,4 @@
-import type { DetectedObjectClass, HexagonalLayer, HvacControlState, MeasurementSource, RoomCondition, SpaceStatus, SpaceType, ZoneDeskState } from '../domain/model';
+import type { DetectedObjectClass, HexagonalLayer, HvacControlState, HvacMode, MeasurementSource, RoomCondition, SpaceStatus, SpaceType, ZoneDeskState } from '../domain/model';
 
 export interface Meta {
   label: string;
@@ -24,13 +24,23 @@ export const STATUS_META: Record<SpaceStatus, Meta> = {
 /** Climate strategy, in plain words (Pasto is cold: the active mode is heating). */
 export const HVAC_META: Record<HvacControlState, Meta> = {
   APAGADO: { label: 'Clima apagado', color: 'var(--color-st-mantenimiento)', ink: 'var(--color-st-mantenimiento-ink)', hint: 'Sin climatización' },
-  PRE_ENFRIAMIENTO_IA: { label: 'Preparando el salón', color: 'var(--color-hv-frio)', ink: 'var(--color-hv-frio-ink)', hint: 'Se acondiciona antes de que llegue la clase' },
-  CONFORT_ACTIVO: { label: 'Calefacción encendida', color: 'var(--color-hv-calor)', ink: 'var(--color-hv-calor-ink)', hint: 'Trabajando para volver a la temperatura cómoda' },
+  PRE_ENFRIAMIENTO_IA: { label: 'Pre-enfriando el salón', color: 'var(--color-hv-frio)', ink: 'var(--color-hv-frio-ink)', hint: 'Se enfría justo a tiempo para la próxima clase' },
+  PRE_CALENTAMIENTO_IA: { label: 'Pre-calentando el salón', color: 'var(--color-hv-calor)', ink: 'var(--color-hv-calor-ink)', hint: 'Se calienta justo a tiempo para la próxima clase' },
+  CONFORT_ACTIVO: { label: 'Climatización activa', color: 'var(--color-hv-calor)', ink: 'var(--color-hv-calor-ink)', hint: 'Trabajando para volver a la temperatura cómoda' },
   ECO_SETBACK_ENTRE_CLASES: { label: 'Ahorro entre clases', color: 'var(--color-hv-ahorro)', ink: 'var(--color-hv-ahorro-ink)', hint: 'Temperatura relajada hasta la próxima clase' },
   CORTE_INERCIA_TERMICA: { label: 'Apagado: el salón guarda el calor', color: 'var(--color-hv-ahorro)', ink: 'var(--color-hv-ahorro-ink)', hint: 'Las paredes mantienen la temperatura hasta el final de la clase' },
   BLOQUEO_AHORRO_VACIO: { label: 'Apagado: salón vacío', color: 'var(--color-hv-ahorro)', ink: 'var(--color-hv-ahorro-ink)', hint: 'Nadie dentro y sin clase próxima' },
   VENTILACION_CO2_ACTIVA: { label: 'Ventilando por CO₂', color: 'var(--color-hv-aire)', ink: 'var(--color-hv-aire-ink)', hint: 'Renovar el aire es lo primero' },
   OVERRIDE_MANUAL_DOCENTE: { label: 'Control del docente', color: 'var(--color-hv-manual)', ink: 'var(--color-hv-manual-ink)', hint: 'El docente tomó el control del clima' },
+  SIN_CLIMATIZACION: { label: 'Sin equipo de clima', color: 'var(--color-st-mantenimiento)', ink: 'var(--color-st-mantenimiento-ink)', hint: 'Este espacio no tiene climatización que controlar' },
+};
+
+/** What the unit does inside its strategy (Java: HvacMode). */
+export const HVAC_MODE_LABEL: Record<HvacMode, string> = {
+  APAGADO: 'Equipo detenido',
+  CALEFACCION: 'Calentando',
+  ENFRIAMIENTO: 'Enfriando',
+  DESHUMIDIFICACION: 'Deshumidificando',
 };
 
 /** Overall state of a room on the campus map. */

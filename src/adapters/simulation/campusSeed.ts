@@ -16,6 +16,13 @@ export const BUILDINGS: Record<string, { name: string; description: string }> = 
   'BLOQUE-B': { name: 'Bloque B', description: 'Biblioteca, cafetería, laboratorios, salas de cómputo y auditorio' },
 };
 
+/** Flyway V15: room types with a climate unit (prototype assumption, to be confirmed by the campus). */
+export const HVAC_SPACE_TYPES: ReadonlySet<CampusSpace['type']> = new Set(['AULA', 'LABORATORIO', 'SALA_COMPUTO', 'AUDITORIO']);
+
+/** Flyway V15: the rooms the live demonstration may change. */
+export const SIMULATION_ROOMS: ReadonlySet<string> = new Set(['420-A', '421-A', '422-A', '423-A', '503-A', '402-B', '414-B',
+  '309-A', '3B-DE-BIOPROCESOS-LABORATORIO', '2B-LABORATORIO-MULTIFUNCIONAL', 'BIBLIOTECA-2B']);
+
 /** Same catalog as Flyway V12: the rooms recognised on the 2025-B plan (estimated capacity and equipment). */
 export const SEED_SPACES: CampusSpace[] = PLAN_ROOMS.map((room) => {
   const buildingId = `BLOQUE-${room.block}`;
@@ -24,6 +31,7 @@ export const SEED_SPACES: CampusSpace[] = PLAN_ROOMS.map((room) => {
     buildingId, buildingName: BUILDINGS[buildingId]!.name, branchId: CAMPUS.branchId, branchName: CAMPUS.branchName,
     city: CAMPUS.city, climateProfile: 'SEDE_ANDINA', energyTariffCopPerKwh: CAMPUS.tariffCopPerKwh, floor: room.floor,
     computers: room.computers, seatRows: room.seatRows, seatColumns: room.seatColumns,
+    hvacInstalled: HVAC_SPACE_TYPES.has(room.type), simulationAllowed: SIMULATION_ROOMS.has(room.spaceId),
   };
 });
 

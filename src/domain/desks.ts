@@ -10,6 +10,7 @@ export function evaluateDeskGhosting(
   previous: DeskObservation | undefined,
   now: number,
 ): DeskObservation {
+  if (!Number.isFinite(now)) throw new RangeError('evaluation time must be finite');
   let people = 0;
   let belongings = 0;
   for (const detection of detections) {
@@ -25,7 +26,11 @@ export function evaluateDeskGhosting(
   if (belongings === 0) {
     return { zoneId: roi.zoneId, state: 'DISPONIBLE', peopleInside: 0, belongingsInside: 0, unattendedSince: null, unattendedMinutes: 0, evaluatedAt };
   }
-  const previousSince = previous?.unattendedSince ? Date.parse(previous.unattendedSince) : null;
+  const tracksSameAbandonment = previous?.zoneId === roi.zoneId
+    && (previous.state === 'ALERTA_ACAPARAMIENTO' || previous.state === 'LIBERADO_POR_ABANDONO');
+  const previousSince = tracksSameAbandonment && previous.unattendedSince
+    ? Date.parse(previous.unattendedSince)
+    : null;
   const since = previousSince !== null && previousSince <= now ? previousSince : now;
   const minutes = Math.floor((now - since) / 60_000);
   return {
