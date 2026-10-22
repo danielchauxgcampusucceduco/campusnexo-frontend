@@ -2,6 +2,12 @@ import type { CampusSpace, NormalizedPoint, RoomCondition, StudyZoneRoi } from '
 
 /** Java: RoomConditionPolicy. */
 export function classifyRoom(input: { maintenance: boolean; people: number; capacity: number; lightsOn: boolean; devicesOn: number }): RoomCondition {
+  if (typeof input.maintenance !== 'boolean' || typeof input.lightsOn !== 'boolean') {
+    throw new RangeError('maintenance and lightsOn must be booleans');
+  }
+  if (!Number.isSafeInteger(input.people) || input.people < 0) throw new RangeError('people must be a non-negative integer');
+  if (!Number.isSafeInteger(input.capacity) || input.capacity <= 0) throw new RangeError('capacity must be a positive integer');
+  if (!Number.isSafeInteger(input.devicesOn) || input.devicesOn < 0) throw new RangeError('devicesOn must be a non-negative integer');
   if (input.maintenance) return 'MANTENIMIENTO';
   if (input.people > input.capacity) return 'SOBRECUPO';
   if (input.people > 0) return 'OCUPADO';
@@ -35,19 +41,26 @@ function seatLabel(space: CampusSpace): string {
 
 /** Java: SeatGrid.regions. One region per seat, numbered row by row. */
 export function seatGrid(space: CampusSpace): StudyZoneRoi[] {
-  if (!space.seatRows || !space.seatColumns) return [];
+  if (space.seatRows === null && space.seatColumns === null) return [];
+  const rows = space.seatRows;
+  const columns = space.seatColumns;
+  if (typeof rows !== 'number' || typeof columns !== 'number'
+      || !Number.isSafeInteger(rows) || !Number.isSafeInteger(columns) || rows <= 0 || columns <= 0) {
+    throw new RangeError('seat layout dimensions must be positive integers');
+  }
+  if (rows * columns > 1_000) throw new RangeError('seat layout cannot exceed 1000 regions');
   const { left, right, top, bottom, inset } = SEAT_GRID;
-  const cellW = (right - left) / space.seatColumns;
-  const cellH = (bottom - top) / space.seatRows;
+  const cellW = (right - left) / columns;
+  const cellH = (bottom - top) / rows;
   const label = seatLabel(space);
   const seats: StudyZoneRoi[] = [];
-  for (let row = 0; row < space.seatRows; row++) {
-    for (let column = 0; column < space.seatColumns; column++) {
+  for (let row = 0; row < rows!; row++) {
+    for (let column = 0; column < columns!; column++) {
       const x0 = left + column * cellW + cellW * inset;
       const x1 = left + (column + 1) * cellW - cellW * inset;
       const y0 = top + row * cellH + cellH * inset;
       const y1 = top + (row + 1) * cellH - cellH * inset;
-      const number = row * space.seatColumns + column + 1;
+      const number = row * columns + column + 1;
       const polygon: NormalizedPoint[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
       seats.push({ zoneId: `${space.spaceId}-P${String(number).padStart(2, '0')}`, label: `${label} ${number}`, polygon });
     }
@@ -58,5 +71,8 @@ export function seatGrid(space: CampusSpace): StudyZoneRoi[] {
 /** {@code 201-A} → block A, floor 2. */
 export function roomCode(spaceId: string): { block: string; floor: number; room: number } | null {
   const match = /^(\d)(\d{2})-([A-Za-z])$/.exec(spaceId);
-  return match ? { block: match[3]!.toUpperCase(), floor: Number(match[1]), room: Number(match[2]) } : null;
+  if (!match) return null;
+  const floor = Number(match[1]);
+  const room = Number(match[2]);
+  return floor > 0 && room > 0 ? { block: match[3]!.toUpperCase(), floor, room } : null;
 }

@@ -8,15 +8,25 @@ export interface SeatSpot {
   angle: number;
 }
 
+function assertRect(room: PlanRoom): void {
+  const values = [room.rect.cx, room.rect.cy, room.rect.w, room.rect.h, room.rect.angle];
+  if (!values.every(Number.isFinite) || room.rect.w <= 0 || room.rect.h <= 0) {
+    throw new RangeError('room rectangle must have finite coordinates and positive dimensions');
+  }
+}
+
 /**
  * Where each seat of a room sits on the floor plan. Seats follow the same row-by-row numbering as the
  * camera regions (SeatGrid): the front strip of the room (board, door) stays free, and the grid fills the
  * rest of the room's oriented rectangle. The library reading room shows its eight tables (4 × 2).
  */
 export function seatSpots(room: PlanRoom): SeatSpot[] {
+  if (room.seatRows === null && room.seatColumns === null && room.spaceId !== 'BIBLIOTECA-2B') return [];
   const rows = room.seatRows ?? (room.spaceId === 'BIBLIOTECA-2B' ? 2 : 0);
   const columns = room.seatColumns ?? (room.spaceId === 'BIBLIOTECA-2B' ? 4 : 0);
-  if (rows === 0 || columns === 0) return [];
+  if (!Number.isSafeInteger(rows) || !Number.isSafeInteger(columns) || rows <= 0 || columns <= 0
+      || rows * columns > 1_000) throw new RangeError('room seat layout must contain 1 to 1000 integer seats');
+  assertRect(room);
   const { cx, cy, w, h, angle } = room.rect;
   const rad = (angle * Math.PI) / 180;
   const cos = Math.cos(rad);
@@ -38,6 +48,8 @@ export function seatSpots(room: PlanRoom): SeatSpot[] {
 
 /** Spots for people standing at the front strip (those beyond the seats). */
 export function standingSpots(room: PlanRoom, count: number): SeatSpot[] {
+  if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('standing count must be a non-negative integer');
+  assertRect(room);
   const { cx, cy, w, h, angle } = room.rect;
   const rad = (angle * Math.PI) / 180;
   const cos = Math.cos(rad);
@@ -51,17 +63,30 @@ export function standingSpots(room: PlanRoom, count: number): SeatSpot[] {
 
 /** Size of one seat glyph, so the grid never overlaps in small rooms. */
 export function seatSize(room: PlanRoom): number {
+  assertRect(room);
   const rows = room.seatRows ?? 2;
   const columns = room.seatColumns ?? 4;
+  if (!Number.isSafeInteger(rows) || !Number.isSafeInteger(columns) || rows <= 0 || columns <= 0) {
+    throw new RangeError('room seat layout dimensions must be positive integers');
+  }
   return Math.max(0.28, Math.min(0.9, Math.min((room.rect.w * 0.86) / columns, (room.rect.h * 0.7) / rows) * 0.62));
 }
 
 export function centroid(polygon: [number, number][]): [number, number] {
-  let x = 0;
-  let y = 0;
-  for (const [px, py] of polygon) {
-    x += px;
-    y += py;
+  if (polygon.length === 0 || polygon.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) {
+    throw new RangeError('polygon must contain finite points');
   }
-  return [x / polygon.length, y / polygon.length];
+  let twiceArea = 0;
+  let xMoment = 0;
+  let yMoment = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const [x1, y1] = polygon[i]!;
+    const [x2, y2] = polygon[(i + 1) % polygon.length]!;
+    const cross = x1 * y2 - x2 * y1;
+    twiceArea += cross;
+    xMoment += (x1 + x2) * cross;
+    yMoment += (y1 + y2) * cross;
+  }
+  if (Math.abs(twiceArea) > Number.EPSILON) return [xMoment / (3 * twiceArea), yMoment / (3 * twiceArea)];
+  return polygon.reduce<[number, number]>((sum, [x, y]) => [sum[0] + x / polygon.length, sum[1] + y / polygon.length], [0, 0]);
 }

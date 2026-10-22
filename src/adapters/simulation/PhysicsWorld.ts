@@ -1,5 +1,5 @@
 import { boxAround, polygonCentroid } from '../../domain/geometry';
-import { COMPRESSOR_ON, type CampusSpace, type DetectedObjectClass, type HvacControlState, type NormalizedPoint, type StudyZoneRoi, type TrackedDetection } from '../../domain/model';
+import { COMPRESSOR_ON, HVAC_POWER_FRACTION, type CampusSpace, type DetectedObjectClass, type HvacControlState, type NormalizedPoint, type StudyZoneRoi, type TrackedDetection } from '../../domain/model';
 import { THERMAL_PARAMETERS } from '../../domain/thermal';
 import { LIBRARY_ID } from './campusSeed';
 
@@ -27,6 +27,7 @@ const BOX: Record<DetectedObjectClass, [number, number]> = {
   BOOK: [0.03, 0.025],
 };
 const YOLO_MISS_PROBABILITY = 0.02;
+const MAX_SIMULATED_PEOPLE = 1_000;
 
 /**
  * Physical state of one room: people and objects (for the camera), the air (temperature, CO2,
@@ -60,10 +61,12 @@ export class RoomPhysics {
   }
 
   setLights(on: boolean): void {
+    if (typeof on !== 'boolean') throw new RangeError('light state must be boolean');
     this.lightsOn = on;
   }
 
   setDevices(count: number): void {
+    if (!Number.isSafeInteger(count)) throw new RangeError('device count must be a safe integer');
     this.devicesOn = Math.max(0, Math.min(this.space.computers, Math.round(count)));
   }
 
@@ -119,6 +122,9 @@ export class RoomPhysics {
 
   /** Adjusts the number of free-roaming people (not sitting at a library desk). */
   setFreePeople(count: number, instant = false): void {
+    if (!Number.isSafeInteger(count) || count < 0 || count > MAX_SIMULATED_PEOPLE) {
+      throw new RangeError(`La cantidad de personas debe ser un entero entre 0 y ${MAX_SIMULATED_PEOPLE}`);
+    }
     const free = this.people().filter((a) => a.deskId === null);
     for (let i = free.length; i < count; i++) {
       this.spawn('PERSON', this.freeSeat(), null, !instant);
@@ -143,6 +149,9 @@ export class RoomPhysics {
 
   /** Places (or removes) the person of a desk; belongings stay unless cleared explicitly. */
   setDeskPerson(deskId: string, present: boolean, instant = false): void {
+    if (typeof present !== 'boolean' || typeof instant !== 'boolean') {
+      throw new RangeError('Desk presence and animation flags must be booleans');
+    }
     const current = this.agents.find((a) => a.deskId === deskId && a.objectClass === 'PERSON' && !a.leaving);
     if (present && !current) {
       const [x, y] = this.deskCenter(deskId);
@@ -158,7 +167,10 @@ export class RoomPhysics {
     }
   }
 
-  setDeskBelongings(deskId: string, classes: DetectedObjectClass[]): void {
+  setDeskBelongings(deskId: string, classes: Exclude<DetectedObjectClass, 'PERSON'>[]): void {
+    if (classes.length > 20 || classes.some((objectClass) => !['LAPTOP', 'BACKPACK', 'BOOK'].includes(objectClass))) {
+      throw new RangeError('Desk belongings must contain at most 20 supported object classes');
+    }
     this.agents = this.agents.filter((a) => !(a.deskId === deskId && a.objectClass !== 'PERSON'));
     const [x, y] = this.deskCenter(deskId);
     classes.forEach((objectClass, index) => this.spawn(objectClass, [x + 0.035 + index * 0.012, y + 0.035 - index * 0.02], deskId, false));
@@ -170,6 +182,9 @@ export class RoomPhysics {
 
   /** Real-time animation step: people walk at a constant speed; those who reach the door disappear. */
   animate(realSeconds: number): void {
+    if (!Number.isFinite(realSeconds) || realSeconds < 0) {
+      throw new RangeError('El tiempo de animación debe ser finito y no negativo');
+    }
     const step = WALK_SPEED_PER_SECOND * realSeconds;
     for (const agent of this.agents) {
       const dx = agent.targetX - agent.x;
@@ -188,6 +203,10 @@ export class RoomPhysics {
 
   /** Simulated-time physics step (minutes) under the current HVAC strategy. */
   integrate(minutes: number, hvacState: HvacControlState, setpointC: number): void {
+    if (!Object.hasOwn(HVAC_POWER_FRACTION, hvacState)) throw new RangeError(`unknown HVAC state: ${String(hvacState)}`);
+    if (!Number.isFinite(minutes) || minutes < 0 || !Number.isFinite(setpointC)) {
+      throw new RangeError('La integración térmica requiere duración y setpoint finitos');
+    }
     if (minutes <= 0) return;
     const occupants = this.people().length;
     const { timeConstantMinutes, occupantGainCPerHour, hvacRateCPerMinute } = THERMAL_PARAMETERS;
@@ -209,6 +228,9 @@ export class RoomPhysics {
 
   /** What YOLO + ByteTrack would report now: boxes of visible agents, with occasional missed persons. */
   detections(withNoise: boolean, swayTime: number): TrackedDetection[] {
+    if (typeof withNoise !== 'boolean' || !Number.isFinite(swayTime)) {
+      throw new RangeError('detection noise flag and sway time must be valid');
+    }
     if (!this.cameraOnline) return [];
     const result: TrackedDetection[] = [];
     for (const agent of this.agents) {

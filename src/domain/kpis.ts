@@ -11,27 +11,81 @@ export const ENERGY = {
   emissionFactorKgCo2PerKwh: 0.126,
 } as const;
 
-export const ratedKw = (areaSqm: number) => ENERGY.ratedKwPerSqm * areaSqm;
+function requireFinite(value: number, name: string): void {
+  if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite`);
+}
+
+function requireNonNegative(value: number, name: string): void {
+  requireFinite(value, name);
+  if (value < 0) throw new RangeError(`${name} must be non-negative`);
+}
+
+function powerFraction(state: HvacControlState): number {
+  if (!Object.hasOwn(HVAC_POWER_FRACTION, state)) throw new RangeError(`unknown HVAC state: ${String(state)}`);
+  return HVAC_POWER_FRACTION[state];
+}
+
+export const ratedKw = (areaSqm: number) => {
+  requireNonNegative(areaSqm, 'areaSqm');
+  return ENERGY.ratedKwPerSqm * areaSqm;
+};
 
 function inSchedule(epochMs: number): boolean {
   const hour = new Date(epochMs + ENERGY.utcOffsetHours * 3_600_000).getUTCHours();
   return hour >= ENERGY.scheduleStartHour && hour < ENERGY.scheduleEndHour;
 }
 
-export function savedKwh(state: HvacControlState, from: number, to: number, areaSqm: number): number {
-  if (to <= from) return 0;
-  const minutes = Math.min((to - from) / 60_000, ENERGY.maxIntervalMinutes);
-  const baseline = inSchedule(from) ? 1 : 0;
-  return (baseline - HVAC_POWER_FRACTION[state]) * ratedKw(areaSqm) * (minutes / 60);
+function nextScheduleBoundary(epochMs: number): number {
+  const local = new Date(epochMs + ENERGY.utcOffsetHours * 3_600_000);
+  const localDayStart = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())
+    - ENERGY.utcOffsetHours * 3_600_000;
+  const boundaries = [ENERGY.scheduleStartHour, ENERGY.scheduleEndHour]
+    .map((hour) => localDayStart + hour * 3_600_000)
+    .filter((boundary) => boundary > epochMs);
+  return boundaries.length > 0 ? Math.min(...boundaries) : localDayStart + 24 * 3_600_000 + ENERGY.scheduleStartHour * 3_600_000;
 }
 
-export const kwhToCop = (kwh: number, tariffCopPerKwh: number) => kwh * tariffCopPerKwh;
-export const kwhToKgCo2 = (kwh: number, factor: number = ENERGY.emissionFactorKgCo2PerKwh) => kwh * factor;
+export function savedKwh(state: HvacControlState, from: number, to: number, areaSqm: number): number {
+  requireFinite(from, 'from');
+  requireFinite(to, 'to');
+  requireNonNegative(areaSqm, 'areaSqm');
+  if (!Number.isFinite(new Date(from).getTime())) throw new RangeError('from must be a valid timestamp');
+  if (!Number.isFinite(new Date(to).getTime())) throw new RangeError('to must be a valid timestamp');
+  if (to <= from) return 0;
+  const end = from + Math.min(to - from, ENERGY.maxIntervalMinutes * 60_000);
+  const actualFraction = powerFraction(state);
+  const power = ratedKw(areaSqm);
+  let cursor = from;
+  let energy = 0;
+  while (cursor < end) {
+    const segmentEnd = Math.min(end, nextScheduleBoundary(cursor));
+    const baselineFraction = inSchedule(cursor) ? 1 : 0;
+    energy += (baselineFraction - actualFraction) * power * ((segmentEnd - cursor) / 3_600_000);
+    cursor = segmentEnd;
+  }
+  return energy;
+}
+
+export const kwhToCop = (kwh: number, tariffCopPerKwh: number) => {
+  requireFinite(kwh, 'kwh');
+  requireNonNegative(tariffCopPerKwh, 'tariffCopPerKwh');
+  return kwh * tariffCopPerKwh;
+};
+export const kwhToKgCo2 = (kwh: number, factor: number = ENERGY.emissionFactorKgCo2PerKwh) => {
+  requireFinite(kwh, 'kwh');
+  requireNonNegative(factor, 'factor');
+  return kwh * factor;
+};
 
 /** Savings report computed from twin states, same aggregation as TwinQueryService.savings(). */
 export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: number, factor: number = ENERGY.emissionFactorKgCo2PerKwh): SavingsReport {
+  requireFinite(generatedAt, 'generatedAt');
+  requireNonNegative(factor, 'factor');
+  if (!Number.isFinite(new Date(generatedAt).getTime())) throw new RangeError('generatedAt must be a valid timestamp');
   const round = (value: number, decimals: number) => Math.round(value * 10 ** decimals) / 10 ** decimals;
-  const spaces = twins.map(({ space, state }) => ({
+  const spaces = twins.map(({ space, state }) => {
+    requireFinite(state.energySavedKwh, `energySavedKwh for ${space.spaceId}`);
+    return {
     spaceId: space.spaceId,
     name: space.name,
     branchName: space.branchName,
@@ -40,7 +94,8 @@ export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: numbe
     kwh: round(state.energySavedKwh, 3),
     cop: round(kwhToCop(state.energySavedKwh, space.energyTariffCopPerKwh), 0),
     kgCo2: round(kwhToKgCo2(state.energySavedKwh, factor), 3),
-  }));
+    };
+  });
   return {
     generatedAt: new Date(generatedAt).toISOString(),
     totalKwh: round(spaces.reduce((sum, s) => sum + s.kwh, 0), 3),
@@ -53,10 +108,11 @@ export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: numbe
 
 /** Live power drawn now by the HVAC fleet versus the conventional baseline, in kW. */
 export function fleetPower(twins: readonly TwinSpace[], now: number): { actualKw: number; baselineKw: number } {
+  requireFinite(now, 'now');
   const baselineShare = inSchedule(now) ? 1 : 0;
   return twins.reduce(
     (acc, { space, state }) => ({
-      actualKw: acc.actualKw + HVAC_POWER_FRACTION[state.hvacState] * ratedKw(space.areaSqm),
+      actualKw: acc.actualKw + powerFraction(state.hvacState) * ratedKw(space.areaSqm),
       baselineKw: acc.baselineKw + baselineShare * ratedKw(space.areaSqm),
     }),
     { actualKw: 0, baselineKw: 0 },

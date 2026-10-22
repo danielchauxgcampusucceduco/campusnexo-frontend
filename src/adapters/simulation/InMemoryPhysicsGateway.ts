@@ -102,6 +102,9 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   private campusClock = 0;
 
   constructor(startAt: number = campusMorning()) {
+    if (!Number.isFinite(startAt) || !Number.isFinite(new Date(startAt).getTime())) {
+      throw new RangeError('La hora inicial de simulación debe ser una marca de tiempo válida');
+    }
     this.simNow = startAt;
     this.resetWorld();
     this.snapshot = this.buildSnapshot();
@@ -133,6 +136,7 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   }
 
   setTimeScale(scale: number): void {
+    if (!Number.isFinite(scale)) throw new RangeError('La escala de tiempo debe ser finita');
     this.scale = Math.min(300, Math.max(1, scale));
     this.publish();
   }
@@ -150,6 +154,7 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   }
 
   setCameraOnline(spaceId: string, online: boolean): void {
+    if (typeof online !== 'boolean') throw new RangeError('El estado de la cámara debe ser booleano');
     this.room(spaceId).physics.cameraOnline = online;
     this.processSpace(spaceId, CONTROL_TRIGGER, true);
   }
@@ -174,11 +179,13 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   }
 
   async runScenario(scenario: SimulationScenario): Promise<ArchitectureTrace | null> {
+    const definition = SCENARIO_CATALOG.find((item) => item.scenario === scenario);
+    if (!definition) throw new RangeError(`Escenario desconocido: ${String(scenario)}`);
     const now = this.simNow;
     this.autonomyClock = -QUIET_AFTER_SCENARIO_MINUTES;
     this.campusClock = -QUIET_AFTER_SCENARIO_MINUTES;
     const at = (minutes: number) => now + minutes * MINUTE;
-    const target = SCENARIO_CATALOG.find((s) => s.scenario === scenario)!.spaceId;
+    const target = definition.spaceId;
     switch (scenario) {
       case 'CLASE_EN_CURSO':
         this.reserve(target, at(-10), at(80), 28, scenario);
