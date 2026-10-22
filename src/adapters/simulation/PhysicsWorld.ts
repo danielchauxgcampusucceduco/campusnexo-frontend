@@ -27,6 +27,7 @@ const BOX: Record<DetectedObjectClass, [number, number]> = {
   BOOK: [0.03, 0.025],
 };
 const YOLO_MISS_PROBABILITY = 0.02;
+const MAX_SIMULATED_PEOPLE = 1_000;
 
 /**
  * Physical state of one room: people and objects (for the camera), the air (temperature, CO2,
@@ -121,7 +122,9 @@ export class RoomPhysics {
 
   /** Adjusts the number of free-roaming people (not sitting at a library desk). */
   setFreePeople(count: number, instant = false): void {
-    if (!Number.isInteger(count) || count < 0) throw new RangeError('La cantidad de personas debe ser un entero no negativo');
+    if (!Number.isSafeInteger(count) || count < 0 || count > MAX_SIMULATED_PEOPLE) {
+      throw new RangeError(`La cantidad de personas debe ser un entero entre 0 y ${MAX_SIMULATED_PEOPLE}`);
+    }
     const free = this.people().filter((a) => a.deskId === null);
     for (let i = free.length; i < count; i++) {
       this.spawn('PERSON', this.freeSeat(), null, !instant);
