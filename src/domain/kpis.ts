@@ -20,6 +20,11 @@ function requireNonNegative(value: number, name: string): void {
   if (value < 0) throw new RangeError(`${name} must be non-negative`);
 }
 
+function powerFraction(state: HvacControlState): number {
+  if (!Object.hasOwn(HVAC_POWER_FRACTION, state)) throw new RangeError(`unknown HVAC state: ${String(state)}`);
+  return HVAC_POWER_FRACTION[state];
+}
+
 export const ratedKw = (areaSqm: number) => {
   requireNonNegative(areaSqm, 'areaSqm');
   return ENERGY.ratedKwPerSqm * areaSqm;
@@ -46,7 +51,7 @@ export function savedKwh(state: HvacControlState, from: number, to: number, area
   requireNonNegative(areaSqm, 'areaSqm');
   if (to <= from) return 0;
   const end = from + Math.min(to - from, ENERGY.maxIntervalMinutes * 60_000);
-  const actualFraction = HVAC_POWER_FRACTION[state];
+  const actualFraction = powerFraction(state);
   const power = ratedKw(areaSqm);
   let cursor = from;
   let energy = 0;
@@ -102,7 +107,7 @@ export function fleetPower(twins: readonly TwinSpace[], now: number): { actualKw
   const baselineShare = inSchedule(now) ? 1 : 0;
   return twins.reduce(
     (acc, { space, state }) => ({
-      actualKw: acc.actualKw + HVAC_POWER_FRACTION[state.hvacState] * ratedKw(space.areaSqm),
+      actualKw: acc.actualKw + powerFraction(state.hvacState) * ratedKw(space.areaSqm),
       baselineKw: acc.baselineKw + baselineShare * ratedKw(space.areaSqm),
     }),
     { actualKw: 0, baselineKw: 0 },

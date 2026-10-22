@@ -41,5 +41,6 @@ describe('energy accounting policy', () => {
     expect(() => savedKwh(state, 0, 10, Number.POSITIVE_INFINITY)).toThrow('areaSqm must be finite');
     expect(() => fleetPower([], Number.NaN)).toThrow('now must be finite');
     expect(() => savingsFromTwins([], 1e100)).toThrow('valid timestamp');
+    expect(() => savedKwh('UNKNOWN' as never, 0, 60_000, 50)).toThrow('unknown HVAC state');
   });
 });
