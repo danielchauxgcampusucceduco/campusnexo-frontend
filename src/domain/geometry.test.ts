@@ -16,9 +16,16 @@ describe('geometry helpers', () => {
     expect(containsPoint(square, [0.9, 0.5])).toBe(false);
   });
 
-  it('computes centers and polygon vertex averages', () => {
+  it('computes box centers and area-weighted polygon centroids', () => {
     expect(boxCenter({ xMin: 0.2, yMin: 0.3, xMax: 0.6, yMax: 0.7 })).toEqual([0.4, 0.5]);
-    expect(polygonCentroid(square)).toEqual([0.5, 0.5]);
+    const squareCenter = polygonCentroid(square);
+    expect(squareCenter[0]).toBeCloseTo(0.5, 10);
+    expect(squareCenter[1]).toBeCloseTo(0.5, 10);
+    const concave: NormalizedPoint[] = [[0.1, 0.1], [0.5, 0.1], [0.5, 0.3], [0.3, 0.3], [0.3, 0.6], [0.1, 0.6]];
+    const [cx, cy] = polygonCentroid(concave);
+    expect(cx).toBeCloseTo(0.257142857, 8);
+    expect(cy).toBeCloseTo(0.307142857, 8);
+    expect(containsPoint(concave, [cx, cy])).toBe(true);
   });
 
   it('clamps generated boxes to normalized image bounds', () => {
@@ -48,5 +55,6 @@ describe('geometry helpers', () => {
   it('rejects non-normalized ROI coordinates and query points', () => {
     expect(() => containsPoint([[0, 0], [2, 0], [1, 1]], [0.5, 0.5])).toThrow('polygon points');
     expect(() => containsPoint(square, [Number.NaN, 0.5])).toThrow('point');
+    expect(() => polygonCentroid([[0, 0], [Number.POSITIVE_INFINITY, 1]])).toThrow('polygon points');
   });
 });
