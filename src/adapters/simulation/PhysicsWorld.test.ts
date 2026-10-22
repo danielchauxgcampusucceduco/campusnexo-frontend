@@ -45,4 +45,14 @@ describe('RoomPhysics', () => {
     expect(() => room.integrate(minutes, 'BLOQUEO_AHORRO_VACIO', setpointC)).toThrow(RangeError);
     expect(room).toMatchObject(before);
   });
+
+  it('rejects invalid lighting and device commands before changing simulated equipment', () => {
+    const room = physics();
+
+    expect(() => room.setLights(1 as never)).toThrow('light state must be boolean');
+    expect(() => room.setDevices(Number.NaN)).toThrow('device count must be a safe integer');
+    expect(() => room.setDevices(1.5)).toThrow('device count must be a safe integer');
+    expect(room.lightsOn).toBe(false);
+    expect(room.devicesOn).toBe(0);
+  });
 });
