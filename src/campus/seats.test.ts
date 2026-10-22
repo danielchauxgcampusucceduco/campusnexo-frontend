@@ -24,4 +24,11 @@ describe('floor plan seat placement', () => {
     expect(centroid([[0, 0], [4, 0], [4, 2], [0, 2]])).toEqual([2, 1]);
     expect(() => centroid([])).toThrow('finite points');
   });
+
+  it('rejects unsafe seat layouts and invalid standing counts before rendering', () => {
+    expect(() => seatSpots({ ...classroom, seatRows: 0 })).toThrow('seat layout');
+    expect(() => seatSpots({ ...classroom, seatRows: 1_000, seatColumns: 2 })).toThrow('1000 integer seats');
+    expect(() => standingSpots(classroom, -1)).toThrow('standing count');
+    expect(() => seatSize({ ...classroom, rect: { ...classroom.rect, w: Number.NaN } })).toThrow('rectangle');
+  });
 });
