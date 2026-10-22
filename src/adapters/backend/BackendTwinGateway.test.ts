@@ -91,13 +91,31 @@ describe('BackendTwinGateway capabilities', () => {
     gateway.stop();
   });
 
+  it('rejects twin events with unknown domain enums and non-finite readings', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const receive = gateway as unknown as { onTwin: (message: { body: string }) => void };
+
+    receive.onTwin({ body: JSON.stringify({
+      spaceId: 'A-301', status: 'UNKNOWN', hvacState: 'UNKNOWN', cameraOnline: true,
+      occupancy: 1, indoorTemperatureC: Number.NaN, updatedAt: '2026-10-21T12:00:00Z', desks: [],
+    }) });
+
+    expect(gateway.getSnapshot().twins).toEqual([]);
+    expect(gateway.getSnapshot().connection).toBe('degraded');
+    gateway.stop();
+  });
+
   it('ignores out-of-order twin events that would roll the room back in time', () => {
     const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
     const internal = gateway as unknown as { twins: { space: { spaceId: string }; state: { updatedAt: string } }[]; onTwin: (message: { body: string }) => void };
     internal.twins = [{ space: { spaceId: 'A-301' }, state: { updatedAt: '2026-10-21T12:00:00Z' } }];
 
     internal.onTwin({ body: JSON.stringify({
-      spaceId: 'A-301', cameraOnline: false, occupancy: 0, updatedAt: '2026-10-21T11:59:00Z',
+      spaceId: 'A-301', status: 'LIBRE', hvacState: 'APAGADO', cameraOnline: false,
+      occupancy: 0, occupancyEstimate: 0, occupancyStdDev: 0, indoorTemperatureC: 20,
+      outdoorTemperatureC: 14, co2Ppm: 415, humidityPct: 55, energySavedKwh: 0,
+      illuminanceLux: 0, devicesOn: 0, devicesTotal: 0, maintenance: false, lightsOn: false,
+      desks: [], updatedAt: '2026-10-21T11:59:00Z',
     }) });
 
     expect(internal.twins[0]!.state.updatedAt).toBe('2026-10-21T12:00:00Z');
