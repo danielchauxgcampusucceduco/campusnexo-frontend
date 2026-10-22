@@ -225,6 +225,9 @@ export class RoomPhysics {
 
   /** What YOLO + ByteTrack would report now: boxes of visible agents, with occasional missed persons. */
   detections(withNoise: boolean, swayTime: number): TrackedDetection[] {
+    if (typeof withNoise !== 'boolean' || !Number.isFinite(swayTime)) {
+      throw new RangeError('detection noise flag and sway time must be valid');
+    }
     if (!this.cameraOnline) return [];
     const result: TrackedDetection[] = [];
     for (const agent of this.agents) {
