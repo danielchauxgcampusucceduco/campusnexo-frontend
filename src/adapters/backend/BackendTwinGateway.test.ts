@@ -31,6 +31,7 @@ describe('BackendTwinGateway capabilities', () => {
 
     expect(() => gateway.setCameraOnline('AULA-301', false)).toThrow('la cámara se controla desde el edge');
     expect(() => gateway.setTimeScale(2)).toThrow('funciona en tiempo real');
+    expect(() => gateway.setLights('AULA-301', false)).toThrow('interruptor del salón');
   });
 
   it('maps malformed successful JSON to an explicit backend contract error', async () => {
