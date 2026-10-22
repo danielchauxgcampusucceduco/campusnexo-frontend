@@ -164,7 +164,10 @@ export class RoomPhysics {
     }
   }
 
-  setDeskBelongings(deskId: string, classes: DetectedObjectClass[]): void {
+  setDeskBelongings(deskId: string, classes: Exclude<DetectedObjectClass, 'PERSON'>[]): void {
+    if (classes.length > 20 || classes.some((objectClass) => !['LAPTOP', 'BACKPACK', 'BOOK'].includes(objectClass))) {
+      throw new RangeError('Desk belongings must contain at most 20 supported object classes');
+    }
     this.agents = this.agents.filter((a) => !(a.deskId === deskId && a.objectClass !== 'PERSON'));
     const [x, y] = this.deskCenter(deskId);
     classes.forEach((objectClass, index) => this.spawn(objectClass, [x + 0.035 + index * 0.012, y + 0.035 - index * 0.02], deskId, false));

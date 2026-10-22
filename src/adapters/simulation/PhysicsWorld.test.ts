@@ -57,4 +57,14 @@ describe('RoomPhysics', () => {
     expect(room.lightsOn).toBe(false);
     expect(room.devicesOn).toBe(0);
   });
+
+  it('rejects people and unbounded object lists as desk belongings', () => {
+    const room = physics();
+    const deskId = room.rois[0]!.zoneId;
+
+    expect(() => room.setDeskBelongings(deskId, ['PERSON' as never])).toThrow('supported object classes');
+    expect(() => room.setDeskBelongings(deskId, Array(21).fill('BOOK'))).toThrow('at most 20');
+    expect(room.people()).toHaveLength(0);
+    expect(room.agents).toHaveLength(0);
+  });
 });
