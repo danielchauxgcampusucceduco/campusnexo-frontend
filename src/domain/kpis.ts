@@ -81,7 +81,9 @@ export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: numbe
   requireNonNegative(factor, 'factor');
   if (!Number.isFinite(new Date(generatedAt).getTime())) throw new RangeError('generatedAt must be a valid timestamp');
   const round = (value: number, decimals: number) => Math.round(value * 10 ** decimals) / 10 ** decimals;
-  const spaces = twins.map(({ space, state }) => ({
+  const spaces = twins.map(({ space, state }) => {
+    requireFinite(state.energySavedKwh, `energySavedKwh for ${space.spaceId}`);
+    return {
     spaceId: space.spaceId,
     name: space.name,
     branchName: space.branchName,
@@ -90,7 +92,8 @@ export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: numbe
     kwh: round(state.energySavedKwh, 3),
     cop: round(kwhToCop(state.energySavedKwh, space.energyTariffCopPerKwh), 0),
     kgCo2: round(kwhToKgCo2(state.energySavedKwh, factor), 3),
-  }));
+    };
+  });
   return {
     generatedAt: new Date(generatedAt).toISOString(),
     totalKwh: round(spaces.reduce((sum, s) => sum + s.kwh, 0), 3),

@@ -43,4 +43,14 @@ describe('energy accounting policy', () => {
     expect(() => savingsFromTwins([], 1e100)).toThrow('valid timestamp');
     expect(() => savedKwh('UNKNOWN' as never, 0, 60_000, 50)).toThrow('unknown HVAC state');
   });
+
+  it('rejects non-finite accumulated energy in an individual twin', () => {
+    const twin = {
+      space: { spaceId: 'A-301', name: 'Aula', branchName: 'Pasto', areaSqm: 50, energyTariffCopPerKwh: 900 },
+      state: { hvacState: 'APAGADO', energySavedKwh: Number.NaN },
+    } as never;
+
+    expect(() => savingsFromTwins([twin], Date.parse('2026-10-21T12:00:00Z')))
+      .toThrow('energySavedKwh for A-301 must be finite');
+  });
 });
