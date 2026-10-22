@@ -13,6 +13,7 @@ import { reconstructFrame } from './reconstructFrame';
 
 const MAX_TRACES = 40;
 const SAVINGS_REFRESH_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 interface SimulationResponse {
   scenario: SimulationScenario;
@@ -209,7 +210,19 @@ export class BackendTwinGateway implements TwinGateway {
   private async send<T>(path: string, method: 'GET' | 'POST'): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
-    const response = await fetch(`${this.apiBase}${path}`, { method, headers });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(`${this.apiBase}${path}`, { method, headers, signal: controller.signal });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new BackendError(0, 'El servidor tardó demasiado en responder');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     if (response.status === 401) {
       // Expired or revoked session: stop pushing stale data and ask the person to sign in again.
       this.connection = 'unauthorized';

@@ -43,4 +43,22 @@ describe('BackendTwinGateway capabilities', () => {
       message: 'El servidor devolvió una respuesta JSON inválida',
     });
   });
+
+  it('aborts stalled REST calls and reports a bounded startup failure', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    })));
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const startup = gateway.start();
+    const failure = expect(startup).rejects.toMatchObject({
+      constructor: BackendError,
+      status: 0,
+      message: 'El servidor tardó demasiado en responder',
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await failure;
+    vi.useRealTimers();
+  });
 });
