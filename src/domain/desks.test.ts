@@ -33,6 +33,20 @@ describe('desk ghosting policy', () => {
     expect(result.unattendedMinutes).toBe(15);
   });
 
+  it('does not inherit abandonment time from another desk or a non-abandonment state', () => {
+    const otherZone = { ...roi, zoneId: 'Z2' };
+    const oldTimer = evaluateDeskGhosting(otherZone, [detection('BACKPACK')], undefined, now - 30 * 60_000);
+    const wrongZone = evaluateDeskGhosting(roi, [detection('BACKPACK')], oldTimer, now);
+    const invalidState = evaluateDeskGhosting(roi, [detection('BACKPACK')], {
+      ...oldTimer, zoneId: roi.zoneId, state: 'OCUPADO_VERIFICADO',
+    }, now);
+
+    expect(wrongZone.state).toBe('ALERTA_ACAPARAMIENTO');
+    expect(wrongZone.unattendedMinutes).toBe(0);
+    expect(invalidState.state).toBe('ALERTA_ACAPARAMIENTO');
+    expect(invalidState.unattendedMinutes).toBe(0);
+  });
+
   it('resets the timer when a person returns or the desk becomes empty', () => {
     const started = evaluateDeskGhosting(roi, [detection('BACKPACK')], undefined, now);
     const returned = evaluateDeskGhosting(roi, [detection('PERSON')], started, now + 60_000);
