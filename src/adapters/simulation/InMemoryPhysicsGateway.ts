@@ -175,11 +175,13 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   }
 
   async runScenario(scenario: SimulationScenario): Promise<ArchitectureTrace | null> {
+    const definition = SCENARIO_CATALOG.find((item) => item.scenario === scenario);
+    if (!definition) throw new RangeError(`Escenario desconocido: ${String(scenario)}`);
     const now = this.simNow;
     this.autonomyClock = -QUIET_AFTER_SCENARIO_MINUTES;
     this.campusClock = -QUIET_AFTER_SCENARIO_MINUTES;
     const at = (minutes: number) => now + minutes * MINUTE;
-    const target = SCENARIO_CATALOG.find((s) => s.scenario === scenario)!.spaceId;
+    const target = definition.spaceId;
     switch (scenario) {
       case 'CLASE_EN_CURSO':
         this.reserve(target, at(-10), at(80), 28, scenario);
