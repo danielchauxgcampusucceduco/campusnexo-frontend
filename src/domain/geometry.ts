@@ -35,6 +35,21 @@ export function boxCenter(box: BoundingBox): NormalizedPoint {
 
 export function polygonCentroid(polygon: readonly NormalizedPoint[]): NormalizedPoint {
   if (polygon.length === 0) throw new RangeError('polygon must contain at least one point');
+  if (polygon.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)) {
+    throw new RangeError('polygon points must be finite and normalized');
+  }
+  let twiceArea = 0;
+  let xMoment = 0;
+  let yMoment = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const [x1, y1] = polygon[i]!;
+    const [x2, y2] = polygon[(i + 1) % polygon.length]!;
+    const cross = x1 * y2 - x2 * y1;
+    twiceArea += cross;
+    xMoment += (x1 + x2) * cross;
+    yMoment += (y1 + y2) * cross;
+  }
+  if (Math.abs(twiceArea) > Number.EPSILON) return [xMoment / (3 * twiceArea), yMoment / (3 * twiceArea)];
   const sum = polygon.reduce<[number, number]>((acc, [x, y]) => [acc[0] + x, acc[1] + y], [0, 0]);
   return [sum[0] / polygon.length, sum[1] / polygon.length];
 }
