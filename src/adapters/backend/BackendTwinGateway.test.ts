@@ -62,4 +62,22 @@ describe('BackendTwinGateway capabilities', () => {
     await failure;
     vi.useRealTimers();
   });
+
+  it('degrades gracefully when a pushed twin message is malformed JSON', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const receive = gateway as unknown as { onTwin: (message: { body: string }) => void };
+
+    expect(() => receive.onTwin({ body: '{invalid' })).not.toThrow();
+    expect(gateway.getSnapshot().connection).toBe('degraded');
+    gateway.stop();
+  });
+
+  it('degrades gracefully when a pushed trace message is malformed JSON', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const receive = gateway as unknown as { onTrace: (message: { body: string }) => void };
+
+    expect(() => receive.onTrace({ body: '{invalid' })).not.toThrow();
+    expect(gateway.getSnapshot().connection).toBe('degraded');
+    gateway.stop();
+  });
 });

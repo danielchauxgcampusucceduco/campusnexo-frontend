@@ -170,17 +170,27 @@ export class BackendTwinGateway implements TwinGateway {
   }
 
   private onTwin(message: IMessage): void {
-    const state = JSON.parse(message.body) as SpaceTwinState;
-    const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
-    if (existing) {
-      this.mergeTwin({ ...existing, state });
+    try {
+      const state = JSON.parse(message.body) as SpaceTwinState;
+      const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
+      if (existing) {
+        this.mergeTwin({ ...existing, state });
+        this.publish();
+      }
+    } catch {
+      this.connection = 'degraded';
       this.publish();
     }
   }
 
   private onTrace(message: IMessage): void {
-    this.addTrace(JSON.parse(message.body) as ArchitectureTrace);
-    this.publish();
+    try {
+      this.addTrace(JSON.parse(message.body) as ArchitectureTrace);
+      this.publish();
+    } catch {
+      this.connection = 'degraded';
+      this.publish();
+    }
   }
 
   private mergeTwin(twin: TwinSpace): void {
