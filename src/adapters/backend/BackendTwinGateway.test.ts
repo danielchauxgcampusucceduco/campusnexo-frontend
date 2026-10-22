@@ -91,6 +91,20 @@ describe('BackendTwinGateway capabilities', () => {
     gateway.stop();
   });
 
+  it('ignores out-of-order twin events that would roll the room back in time', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const internal = gateway as unknown as { twins: { space: { spaceId: string }; state: { updatedAt: string } }[]; onTwin: (message: { body: string }) => void };
+    internal.twins = [{ space: { spaceId: 'A-301' }, state: { updatedAt: '2026-10-21T12:00:00Z' } }];
+
+    internal.onTwin({ body: JSON.stringify({
+      spaceId: 'A-301', cameraOnline: false, occupancy: 0, updatedAt: '2026-10-21T11:59:00Z',
+    }) });
+
+    expect(internal.twins[0]!.state.updatedAt).toBe('2026-10-21T12:00:00Z');
+    expect(gateway.getSnapshot().connection).toBe('connecting');
+    gateway.stop();
+  });
+
   it('rejects trace events without an identifier', () => {
     const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
     const receive = gateway as unknown as { onTrace: (message: { body: string }) => void };
