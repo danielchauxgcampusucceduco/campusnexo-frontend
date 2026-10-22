@@ -2,6 +2,9 @@ import type { CampusSpace, NormalizedPoint, RoomCondition, StudyZoneRoi } from '
 
 /** Java: RoomConditionPolicy. */
 export function classifyRoom(input: { maintenance: boolean; people: number; capacity: number; lightsOn: boolean; devicesOn: number }): RoomCondition {
+  if (typeof input.maintenance !== 'boolean' || typeof input.lightsOn !== 'boolean') {
+    throw new RangeError('maintenance and lightsOn must be booleans');
+  }
   if (!Number.isSafeInteger(input.people) || input.people < 0) throw new RangeError('people must be a non-negative integer');
   if (!Number.isSafeInteger(input.capacity) || input.capacity <= 0) throw new RangeError('capacity must be a positive integer');
   if (!Number.isSafeInteger(input.devicesOn) || input.devicesOn < 0) throw new RangeError('devicesOn must be a non-negative integer');
