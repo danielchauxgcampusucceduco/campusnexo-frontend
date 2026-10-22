@@ -30,14 +30,33 @@ function inSchedule(epochMs: number): boolean {
   return hour >= ENERGY.scheduleStartHour && hour < ENERGY.scheduleEndHour;
 }
 
+function nextScheduleBoundary(epochMs: number): number {
+  const local = new Date(epochMs + ENERGY.utcOffsetHours * 3_600_000);
+  const localDayStart = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())
+    - ENERGY.utcOffsetHours * 3_600_000;
+  const boundaries = [ENERGY.scheduleStartHour, ENERGY.scheduleEndHour]
+    .map((hour) => localDayStart + hour * 3_600_000)
+    .filter((boundary) => boundary > epochMs);
+  return boundaries.length > 0 ? Math.min(...boundaries) : localDayStart + 24 * 3_600_000 + ENERGY.scheduleStartHour * 3_600_000;
+}
+
 export function savedKwh(state: HvacControlState, from: number, to: number, areaSqm: number): number {
   requireFinite(from, 'from');
   requireFinite(to, 'to');
   requireNonNegative(areaSqm, 'areaSqm');
   if (to <= from) return 0;
-  const minutes = Math.min((to - from) / 60_000, ENERGY.maxIntervalMinutes);
-  const baseline = inSchedule(from) ? 1 : 0;
-  return (baseline - HVAC_POWER_FRACTION[state]) * ratedKw(areaSqm) * (minutes / 60);
+  const end = from + Math.min(to - from, ENERGY.maxIntervalMinutes * 60_000);
+  const actualFraction = HVAC_POWER_FRACTION[state];
+  const power = ratedKw(areaSqm);
+  let cursor = from;
+  let energy = 0;
+  while (cursor < end) {
+    const segmentEnd = Math.min(end, nextScheduleBoundary(cursor));
+    const baselineFraction = inSchedule(cursor) ? 1 : 0;
+    energy += (baselineFraction - actualFraction) * power * ((segmentEnd - cursor) / 3_600_000);
+    cursor = segmentEnd;
+  }
+  return energy;
 }
 
 export const kwhToCop = (kwh: number, tariffCopPerKwh: number) => {
