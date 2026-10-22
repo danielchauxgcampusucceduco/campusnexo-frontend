@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SimulationScenario } from '../../domain/model';
 import { InMemoryPhysicsGateway } from './InMemoryPhysicsGateway';
 
@@ -13,6 +13,11 @@ async function stateAfter(scenario: SimulationScenario, spaceId: string) {
 }
 
 const seated = (state: { desks: { state: string }[] }) => state.desks.filter((d) => d.state === 'OCUPADO_VERIFICADO').length;
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe('campus de la simulación local', () => {
   it('tiene los salones del plano en los bloques A y B con sus pupitres', () => {
@@ -31,6 +36,26 @@ describe('campus de la simulación local', () => {
     gateway.setTimeScale(500);
     expect(gateway.timeScale()).toBe(300);
     expect(() => gateway.setTimeScale(Number.NaN)).toThrow(RangeError);
+  });
+
+  it('starts one clock, stops it cleanly and does not publish after disposal', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(START);
+    vi.spyOn(performance, 'now').mockImplementation(() => Date.now());
+    const gateway = new InMemoryPhysicsGateway(START);
+    gateway.setTimeScale(60);
+    await gateway.start();
+    await gateway.start();
+    const startedAt = gateway.getSnapshot().now;
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    const tickedAt = gateway.getSnapshot().now;
+    gateway.stop();
+    const stoppedAt = gateway.getSnapshot().now;
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(tickedAt - startedAt).toBe(60_000);
+    expect(gateway.getSnapshot().now).toBe(stoppedAt);
   });
 });
 
