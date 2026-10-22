@@ -39,6 +39,7 @@ describe('energy accounting policy', () => {
     expect(() => ratedKw(-2)).toThrow(RangeError);
     expect(() => savedKwh(state, Number.NaN, 10, 50)).toThrow('from must be finite');
     expect(() => savedKwh(state, 1e100, 1e100 + 1, 50)).toThrow('from must be a valid timestamp');
+    expect(() => savedKwh(state, 0, 1e100, 50)).toThrow('to must be a valid timestamp');
     expect(() => savedKwh(state, 0, 10, Number.POSITIVE_INFINITY)).toThrow('areaSqm must be finite');
     expect(() => fleetPower([], Number.NaN)).toThrow('now must be finite');
     expect(() => savingsFromTwins([], 1e100)).toThrow('valid timestamp');
