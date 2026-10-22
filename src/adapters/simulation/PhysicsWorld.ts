@@ -119,6 +119,7 @@ export class RoomPhysics {
 
   /** Adjusts the number of free-roaming people (not sitting at a library desk). */
   setFreePeople(count: number, instant = false): void {
+    if (!Number.isInteger(count) || count < 0) throw new RangeError('La cantidad de personas debe ser un entero no negativo');
     const free = this.people().filter((a) => a.deskId === null);
     for (let i = free.length; i < count; i++) {
       this.spawn('PERSON', this.freeSeat(), null, !instant);
@@ -170,6 +171,9 @@ export class RoomPhysics {
 
   /** Real-time animation step: people walk at a constant speed; those who reach the door disappear. */
   animate(realSeconds: number): void {
+    if (!Number.isFinite(realSeconds) || realSeconds < 0) {
+      throw new RangeError('El tiempo de animación debe ser finito y no negativo');
+    }
     const step = WALK_SPEED_PER_SECOND * realSeconds;
     for (const agent of this.agents) {
       const dx = agent.targetX - agent.x;
