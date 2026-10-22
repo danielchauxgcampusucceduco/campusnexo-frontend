@@ -20,6 +20,11 @@ afterEach(() => {
 });
 
 describe('campus de la simulación local', () => {
+  it('rejects an invalid initial simulation clock before building room state', () => {
+    expect(() => new InMemoryPhysicsGateway(Number.NaN)).toThrow('marca de tiempo válida');
+    expect(() => new InMemoryPhysicsGateway(1e100)).toThrow('marca de tiempo válida');
+  });
+
   it('tiene los salones del plano en los bloques A y B con sus pupitres', () => {
     const twins = new InMemoryPhysicsGateway(START).getSnapshot().twins;
     expect(twins).toHaveLength(107);

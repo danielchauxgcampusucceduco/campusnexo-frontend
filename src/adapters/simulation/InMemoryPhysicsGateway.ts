@@ -102,6 +102,9 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   private campusClock = 0;
 
   constructor(startAt: number = campusMorning()) {
+    if (!Number.isFinite(startAt) || !Number.isFinite(new Date(startAt).getTime())) {
+      throw new RangeError('La hora inicial de simulación debe ser una marca de tiempo válida');
+    }
     this.simNow = startAt;
     this.resetWorld();
     this.snapshot = this.buildSnapshot();
