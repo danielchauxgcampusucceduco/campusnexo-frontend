@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BackendUnavailableError, fetchSession } from './BackendSession';
+import { BackendUnavailableError, fetchSession, login } from './BackendSession';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -28,5 +28,16 @@ describe('fetchSession', () => {
     expect(fetchMock.mock.calls[0]![1]).toMatchObject({
       headers: { Accept: 'application/json', Authorization: 'Bearer session-token' },
     });
+  });
+
+  it('does not store a token from a malformed login response', async () => {
+    const storage = { setItem: vi.fn(), removeItem: vi.fn(), getItem: vi.fn() };
+    vi.stubGlobal('sessionStorage', storage);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ token: '', username: 'daniel', role: 'ADMIN' }), { status: 200 }),
+    ));
+
+    await expect(login('/api/v1', 'daniel', 'secret')).rejects.toBeInstanceOf(BackendUnavailableError);
+    expect(storage.setItem).not.toHaveBeenCalled();
   });
 });

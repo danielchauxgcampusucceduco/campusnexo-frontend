@@ -41,6 +41,23 @@ function parseSessionInfo(value: unknown): SessionInfo {
   return session as unknown as SessionInfo;
 }
 
+function parseCredentials(value: unknown): Credentials {
+  if (typeof value !== 'object' || value === null) {
+    throw new BackendUnavailableError('El servidor devolvió credenciales inválidas');
+  }
+  const credentials = value as Record<string, unknown>;
+  if (typeof credentials.token !== 'string' || credentials.token.length === 0
+      || typeof credentials.username !== 'string' || credentials.username.length === 0
+      || !ROLES.includes(credentials.role as Role)) {
+    throw new BackendUnavailableError('El servidor devolvió credenciales inválidas');
+  }
+  return {
+    token: credentials.token,
+    username: credentials.username,
+    role: credentials.role as Role,
+  };
+}
+
 export function storedToken(): string | null {
   try {
     return sessionStorage.getItem(STORAGE_KEY);
@@ -86,9 +103,9 @@ export async function login(apiBase: string, username: string, password: string)
   if (response.status === 401) throw new InvalidCredentialsError('Usuario o contraseña incorrectos.');
   if (response.status === 429) throw new InvalidCredentialsError('Demasiados intentos: espera un minuto.');
   if (!response.ok) throw new BackendUnavailableError(`El servidor respondió HTTP ${response.status}`);
-  const body = (await response.json()) as { token: string; username: string; role: Role };
-  storeToken(body.token);
-  return { token: body.token, username: body.username, role: body.role };
+  const credentials = parseCredentials(await response.json());
+  storeToken(credentials.token);
+  return credentials;
 }
 
 export function logout(): void {
