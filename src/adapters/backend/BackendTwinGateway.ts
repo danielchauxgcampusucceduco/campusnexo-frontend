@@ -179,7 +179,7 @@ export class BackendTwinGateway implements TwinGateway {
     try {
       const state = JSON.parse(message.body) as SpaceTwinState;
       if (!state || typeof state !== 'object' || typeof state.spaceId !== 'string'
-          || !state.spaceId.trim() || !SPACE_STATUSES.includes(state.status)
+          || !state.spaceId.trim() || state.spaceId !== state.spaceId.trim() || !SPACE_STATUSES.includes(state.status)
           || !HVAC_CONTROL_STATES.includes(state.hvacState)
           || !TWIN_NUMERIC_FIELDS.every((field) => Number.isFinite(state[field]))
           || !TWIN_BOOLEAN_FIELDS.every((field) => typeof state[field] === 'boolean')
