@@ -60,10 +60,12 @@ export class RoomPhysics {
   }
 
   setLights(on: boolean): void {
+    if (typeof on !== 'boolean') throw new RangeError('light state must be boolean');
     this.lightsOn = on;
   }
 
   setDevices(count: number): void {
+    if (!Number.isSafeInteger(count)) throw new RangeError('device count must be a safe integer');
     this.devicesOn = Math.max(0, Math.min(this.space.computers, Math.round(count)));
   }
 
