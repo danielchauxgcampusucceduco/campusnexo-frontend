@@ -172,6 +172,11 @@ export class BackendTwinGateway implements TwinGateway {
   private onTwin(message: IMessage): void {
     try {
       const state = JSON.parse(message.body) as SpaceTwinState;
+      if (!state || typeof state !== 'object' || typeof state.spaceId !== 'string'
+          || typeof state.cameraOnline !== 'boolean' || !Number.isSafeInteger(state.occupancy) || state.occupancy < 0
+          || !Number.isFinite(Date.parse(state.updatedAt))) {
+        throw new TypeError('Invalid twin event contract');
+      }
       const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
       if (existing) {
         this.mergeTwin({ ...existing, state });
@@ -185,7 +190,11 @@ export class BackendTwinGateway implements TwinGateway {
 
   private onTrace(message: IMessage): void {
     try {
-      this.addTrace(JSON.parse(message.body) as ArchitectureTrace);
+      const trace = JSON.parse(message.body) as ArchitectureTrace;
+      if (!trace || typeof trace !== 'object' || typeof trace.traceId !== 'string' || trace.traceId.length === 0) {
+        throw new TypeError('Invalid trace event contract');
+      }
+      this.addTrace(trace);
       this.publish();
     } catch {
       this.connection = 'degraded';
