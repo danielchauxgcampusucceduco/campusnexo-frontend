@@ -33,4 +33,16 @@ describe('RoomPhysics', () => {
     expect(() => room.animate(Number.POSITIVE_INFINITY)).toThrow(RangeError);
     expect(room.agents[0]).toMatchObject(before);
   });
+
+  it.each([
+    [Number.NaN, 24],
+    [-1, 24],
+    [1, Number.POSITIVE_INFINITY],
+  ])('rejects invalid thermal inputs without changing the climate', (minutes, setpointC) => {
+    const room = physics();
+    const before = { indoorC: room.indoorC, co2Ppm: room.co2Ppm, humidityPct: room.humidityPct };
+
+    expect(() => room.integrate(minutes, 'BLOQUEO_AHORRO_VACIO', setpointC)).toThrow(RangeError);
+    expect(room).toMatchObject(before);
+  });
 });
