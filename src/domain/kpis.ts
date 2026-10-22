@@ -74,6 +74,7 @@ export const kwhToKgCo2 = (kwh: number, factor: number = ENERGY.emissionFactorKg
 export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: number, factor: number = ENERGY.emissionFactorKgCo2PerKwh): SavingsReport {
   requireFinite(generatedAt, 'generatedAt');
   requireNonNegative(factor, 'factor');
+  if (!Number.isFinite(new Date(generatedAt).getTime())) throw new RangeError('generatedAt must be a valid timestamp');
   const round = (value: number, decimals: number) => Math.round(value * 10 ** decimals) / 10 ** decimals;
   const spaces = twins.map(({ space, state }) => ({
     spaceId: space.spaceId,
