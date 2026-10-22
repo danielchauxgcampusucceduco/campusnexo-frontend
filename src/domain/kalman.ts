@@ -19,7 +19,7 @@ export interface OccupancyBelief {
 
 export function uninformedBelief(at: number, capacity: number): OccupancyBelief {
   if (!Number.isFinite(at)) throw new RangeError('belief timestamp must be finite');
-  if (!Number.isFinite(capacity) || capacity < 0) throw new RangeError('capacity must be finite and non-negative');
+  if (!Number.isSafeInteger(capacity) || capacity < 0) throw new RangeError('capacity must be a non-negative integer');
   return { estimate: 0, variance: Math.max(4, (capacity * capacity) / 4), at };
 }
 
@@ -46,7 +46,7 @@ export function kalmanUpdate(
   if (previous.estimate < 0 || previous.variance < 0 || snapshot.capturedAt < previous.at) {
     throw new RangeError('belief state and snapshot time must be monotonic and non-negative');
   }
-  if (!Number.isFinite(space.capacity) || space.capacity < 0 || !Number.isFinite(space.areaSqm) || space.areaSqm <= 0) {
+  if (!Number.isSafeInteger(space.capacity) || space.capacity < 0 || !Number.isFinite(space.areaSqm) || space.areaSqm <= 0) {
     throw new RangeError('space capacity and area must be valid');
   }
   if (!Number.isFinite(snapshot.co2Ppm) || snapshot.co2Ppm < 0 || !Number.isInteger(snapshot.wifiDevices) || snapshot.wifiDevices < 0) {

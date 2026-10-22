@@ -61,6 +61,8 @@ describe('Kalman', () => {
 
   it('requires positive floor area for CO2 mass-balance conversion', () => {
     expect(() => kalmanUpdate(uninformedBelief(T0, 32), snapshot(false, 0), { capacity: 32, areaSqm: 0 })).toThrow(RangeError);
+    expect(() => uninformedBelief(T0, 1.5)).toThrow('capacity must be a non-negative integer');
+    expect(() => kalmanUpdate(uninformedBelief(T0, 32), snapshot(false, 0), { capacity: 2.5, areaSqm: 48 })).toThrow(RangeError);
   });
 });
 
