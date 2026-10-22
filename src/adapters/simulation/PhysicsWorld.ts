@@ -192,6 +192,9 @@ export class RoomPhysics {
 
   /** Simulated-time physics step (minutes) under the current HVAC strategy. */
   integrate(minutes: number, hvacState: HvacControlState, setpointC: number): void {
+    if (!Number.isFinite(minutes) || minutes < 0 || !Number.isFinite(setpointC)) {
+      throw new RangeError('La integración térmica requiere duración y setpoint finitos');
+    }
     if (minutes <= 0) return;
     const occupants = this.people().length;
     const { timeConstantMinutes, occupantGainCPerHour, hvacRateCPerMinute } = THERMAL_PARAMETERS;
