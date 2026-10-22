@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fleetPower, ratedKw, savedKwh } from './kpis';
+import { fleetPower, ratedKw, savedKwh, savingsFromTwins } from './kpis';
 
 describe('energy accounting policy', () => {
   it('uses Bogotá local hours and caps each telemetry interval at fifteen minutes', () => {
@@ -40,5 +40,6 @@ describe('energy accounting policy', () => {
     expect(() => savedKwh(state, Number.NaN, 10, 50)).toThrow('from must be finite');
     expect(() => savedKwh(state, 0, 10, Number.POSITIVE_INFINITY)).toThrow('areaSqm must be finite');
     expect(() => fleetPower([], Number.NaN)).toThrow('now must be finite');
+    expect(() => savingsFromTwins([], 1e100)).toThrow('valid timestamp');
   });
 });
