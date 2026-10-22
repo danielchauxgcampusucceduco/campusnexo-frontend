@@ -82,4 +82,13 @@ describe('RoomPhysics', () => {
     expect(room.people()).toHaveLength(0);
     expect(room.agents).toHaveLength(0);
   });
+
+  it('rejects non-boolean desk presence and animation flags', () => {
+    const room = physics();
+    const deskId = room.rois[0]!.zoneId;
+
+    expect(() => room.setDeskPerson(deskId, 'false' as never, true)).toThrow('must be booleans');
+    expect(() => room.setDeskPerson(deskId, true, 1 as never)).toThrow('must be booleans');
+    expect(room.people()).toHaveLength(0);
+  });
 });
