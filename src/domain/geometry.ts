@@ -18,6 +18,12 @@ export function containsPoint(polygon: readonly NormalizedPoint[], [px, py]: Nor
 }
 
 export function boxCenter(box: BoundingBox): NormalizedPoint {
+  const coordinates = [box.xMin, box.yMin, box.xMax, box.yMax];
+  if (!coordinates.every(Number.isFinite)) throw new RangeError('box coordinates must be finite');
+  if (box.xMin < 0 || box.yMin < 0 || box.xMax > 1 || box.yMax > 1
+      || box.xMin > box.xMax || box.yMin > box.yMax) {
+    throw new RangeError('box must be ordered within normalized image bounds');
+  }
   return [(box.xMin + box.xMax) / 2, (box.yMin + box.yMax) / 2];
 }
 
