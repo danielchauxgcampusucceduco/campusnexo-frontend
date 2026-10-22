@@ -32,6 +32,8 @@ La UI solo conoce el puerto `TwinGateway`. Al iniciar, `createGateway` consulta 
 
 El dominio TypeScript replica la matemática del backend, y `src/domain/domain.test.ts` usa los mismos casos que los tests de Java para que ambas implementaciones coincidan.
 
+El cálculo de energía compara cada estado HVAC con el consumo nominal durante el horario convencional de Bogotá (07:00–21:00). Cada lectura acredita como máximo 15 minutos y se divide al cruzar el inicio o fin del horario, para no atribuir ahorro fuera de la franja. Tarifas y factor de emisión son valores ilustrativos; no representan una factura ni una medición eléctrica certificada.
+
 ## Vistas
 
 | Ruta | Qué muestra |
