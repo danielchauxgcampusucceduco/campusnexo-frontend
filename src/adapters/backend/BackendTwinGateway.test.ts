@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { BackendTwinGateway } from './BackendTwinGateway';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BackendError, BackendTwinGateway } from './BackendTwinGateway';
 import type { GatewayUser, TwinGateway } from '../../ports/TwinGateway';
 
 const user = (role: GatewayUser['role']): GatewayUser => ({
@@ -7,6 +7,8 @@ const user = (role: GatewayUser['role']): GatewayUser => ({
   role,
   signedIn: true,
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('BackendTwinGateway capabilities', () => {
   it.each([
@@ -29,5 +31,16 @@ describe('BackendTwinGateway capabilities', () => {
 
     expect(() => gateway.setCameraOnline('AULA-301', false)).toThrow('la cámara se controla desde el edge');
     expect(() => gateway.setTimeScale(2)).toThrow('funciona en tiempo real');
+  });
+
+  it('maps malformed successful JSON to an explicit backend contract error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>proxy failure</html>', { status: 200 })));
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+
+    await expect(gateway.start()).rejects.toMatchObject({
+      constructor: BackendError,
+      status: 200,
+      message: 'El servidor devolvió una respuesta JSON inválida',
+    });
   });
 });

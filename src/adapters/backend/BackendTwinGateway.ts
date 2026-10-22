@@ -226,7 +226,11 @@ export class BackendTwinGateway implements TwinGateway {
       }
       throw new BackendError(response.status, detail);
     }
-    return (await response.json()) as T;
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new BackendError(response.status, 'El servidor devolvió una respuesta JSON inválida');
+    }
   }
 
   private publish(): void {
