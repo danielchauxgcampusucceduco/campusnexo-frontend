@@ -18,4 +18,10 @@ describe('room condition policy', () => {
       expect(wastesEnergy(condition)).toBe(false);
     }
   });
+
+  it('rejects invalid counts before applying condition precedence', () => {
+    expect(() => classifyRoom({ maintenance: true, people: -1, capacity: 40, lightsOn: false, devicesOn: 0 })).toThrow('people');
+    expect(() => classifyRoom({ maintenance: false, people: 0, capacity: 0, lightsOn: false, devicesOn: 0 })).toThrow('capacity');
+    expect(() => classifyRoom({ maintenance: false, people: 0, capacity: 40, lightsOn: false, devicesOn: 1.2 })).toThrow('devicesOn');
+  });
 });
