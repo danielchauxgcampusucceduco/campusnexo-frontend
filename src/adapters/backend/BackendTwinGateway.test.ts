@@ -63,6 +63,17 @@ describe('BackendTwinGateway capabilities', () => {
     vi.useRealTimers();
   });
 
+  it('marks the backend session unauthorized when a command returns 401', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ detail: 'session expired' }), { status: 401 },
+    )));
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', 'expired', user('ADMIN'));
+
+    await expect(gateway.runScenario('CLASE_EN_CURSO')).rejects.toBeInstanceOf(BackendError);
+    expect(gateway.getSnapshot().connection).toBe('unauthorized');
+    gateway.stop();
+  });
+
   it('degrades gracefully when a pushed twin message is malformed JSON', () => {
     const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
     const receive = gateway as unknown as { onTwin: (message: { body: string }) => void };
