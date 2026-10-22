@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BackendUnavailableError, fetchSession, login } from './BackendSession';
+import { BackendUnavailableError, fetchSession, InvalidCredentialsError, login, logout, storedToken } from './BackendSession';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -39,5 +39,28 @@ describe('fetchSession', () => {
 
     await expect(login('/api/v1', 'daniel', 'secret')).rejects.toBeInstanceOf(BackendUnavailableError);
     expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [401, 'Usuario o contraseña incorrectos.'],
+    [429, 'Demasiados intentos: espera un minuto.'],
+  ])('maps authentication HTTP %i to a safe user-facing error', async (status, message) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status })));
+
+    await expect(login('/api/v1', 'daniel', 'wrong')).rejects.toMatchObject({
+      constructor: InvalidCredentialsError,
+      message,
+    });
+  });
+
+  it('returns no stored token when browser storage is unavailable', () => {
+    vi.stubGlobal('sessionStorage', {
+      getItem: () => { throw new Error('storage disabled'); },
+      removeItem: () => { throw new Error('storage disabled'); },
+      setItem: () => { throw new Error('storage disabled'); },
+    });
+
+    expect(storedToken()).toBeNull();
+    expect(() => logout()).not.toThrow();
   });
 });
