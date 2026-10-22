@@ -20,6 +20,16 @@ export function classifySpace(input: {
   now: number;
 }): SpaceStatus {
   const { maintenance, popUpActive, people, capacity, reservation, now } = input;
+  if (!Number.isSafeInteger(people) || people < 0) throw new RangeError('people must be a non-negative integer');
+  if (!Number.isSafeInteger(capacity) || capacity <= 0) throw new RangeError('capacity must be a positive integer');
+  if (!Number.isFinite(now)) throw new RangeError('now must be finite');
+  if (reservation) {
+    if (!Number.isFinite(reservation.startsAt) || !Number.isFinite(reservation.endsAt)
+        || reservation.endsAt <= reservation.startsAt) throw new RangeError('reservation interval must be valid');
+    if (!Number.isSafeInteger(reservation.expectedAttendees) || reservation.expectedAttendees < 0) {
+      throw new RangeError('expectedAttendees must be a non-negative integer');
+    }
+  }
   if (maintenance) return 'MANTENIMIENTO';
   if (popUpActive) return people > capacity ? 'ALERTA_SOBRECUPO' : 'HABILITADO_POPUP_PARCIALES';
   if (people > capacity) return 'ALERTA_SOBRECUPO';

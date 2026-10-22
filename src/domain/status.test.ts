@@ -29,4 +29,13 @@ describe('space status policy', () => {
     expect(classifySpace({ ...base, reservation, now: now + NO_SHOW_GRACE_MINUTES * 60_000 })).toBe('LIBERADO_POR_NO_SHOW');
     expect(UNDERUSE_RATIO).toBe(0.3);
   });
+
+  it('rejects invalid occupancy and reservation intervals instead of classifying corrupt data', () => {
+    const reservation = { startsAt: now, endsAt: now + 60_000, expectedAttendees: 10, reference: 'R-3' };
+
+    expect(() => classifySpace({ ...base, people: -1 })).toThrow('people');
+    expect(() => classifySpace({ ...base, capacity: 0 })).toThrow('capacity');
+    expect(() => classifySpace({ ...base, reservation: { ...reservation, endsAt: now } })).toThrow('interval');
+    expect(() => classifySpace({ ...base, reservation: { ...reservation, expectedAttendees: -1 } })).toThrow('expectedAttendees');
+  });
 });
