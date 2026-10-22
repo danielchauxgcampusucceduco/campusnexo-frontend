@@ -80,6 +80,14 @@ describe('campus de la simulación local', () => {
 });
 
 describe('escenarios de la simulación local', () => {
+  it('rejects unknown scenarios before changing the simulation snapshot', async () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+    const before = gateway.getSnapshot();
+
+    await expect(gateway.runScenario('UNKNOWN' as never)).rejects.toThrow('Escenario desconocido');
+    expect(gateway.getSnapshot()).toBe(before);
+  });
+
   it('clase en curso: 26 pupitres ocupados y luces encendidas', async () => {
     const { state, trace } = await stateAfter('CLASE_EN_CURSO', '421-A');
     expect(state.status).toBe('OCUPADO_OPTIMO');
