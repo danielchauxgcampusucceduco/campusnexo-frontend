@@ -97,6 +97,21 @@ describe('MPC térmico', () => {
     expect(preCool.setpointC).toBe(25.5);
     expect(decideThermal({ indoorTemperatureC: 27, outdoorTemperatureC: 31.8, occupants: 0, areaSqm: 72, co2Ppm: 440, band: tropical, minutesUntilOccupancyEnds: null, minutesUntilNextOccupancy: null }).recommendedState).toBe('BLOQUEO_AHORRO_VACIO');
   });
+
+  it('restores comfort immediately when occupied temperatures leave either band edge', () => {
+    const band = comfortBand('SEDE_ANDINA');
+    const base = {
+      outdoorTemperatureC: 14, occupants: 20, areaSqm: 48, co2Ppm: 500,
+      band, minutesUntilOccupancyEnds: 30, minutesUntilNextOccupancy: null,
+    };
+    const tooWarm = decideThermal({ ...base, indoorTemperatureC: 25 });
+    const tooCold = decideThermal({ ...base, indoorTemperatureC: 18 });
+
+    expect(tooWarm.recommendedState).toBe('CONFORT_ACTIVO');
+    expect(tooWarm.setpointC).toBe(23);
+    expect(tooCold.recommendedState).toBe('CONFORT_ACTIVO');
+    expect(tooCold.setpointC).toBe(20);
+  });
 });
 
 describe('estado y energía', () => {
