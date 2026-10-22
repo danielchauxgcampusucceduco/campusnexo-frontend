@@ -11,7 +11,19 @@ export const ENERGY = {
   emissionFactorKgCo2PerKwh: 0.126,
 } as const;
 
-export const ratedKw = (areaSqm: number) => ENERGY.ratedKwPerSqm * areaSqm;
+function requireFinite(value: number, name: string): void {
+  if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite`);
+}
+
+function requireNonNegative(value: number, name: string): void {
+  requireFinite(value, name);
+  if (value < 0) throw new RangeError(`${name} must be non-negative`);
+}
+
+export const ratedKw = (areaSqm: number) => {
+  requireNonNegative(areaSqm, 'areaSqm');
+  return ENERGY.ratedKwPerSqm * areaSqm;
+};
 
 function inSchedule(epochMs: number): boolean {
   const hour = new Date(epochMs + ENERGY.utcOffsetHours * 3_600_000).getUTCHours();
@@ -19,17 +31,30 @@ function inSchedule(epochMs: number): boolean {
 }
 
 export function savedKwh(state: HvacControlState, from: number, to: number, areaSqm: number): number {
+  requireFinite(from, 'from');
+  requireFinite(to, 'to');
+  requireNonNegative(areaSqm, 'areaSqm');
   if (to <= from) return 0;
   const minutes = Math.min((to - from) / 60_000, ENERGY.maxIntervalMinutes);
   const baseline = inSchedule(from) ? 1 : 0;
   return (baseline - HVAC_POWER_FRACTION[state]) * ratedKw(areaSqm) * (minutes / 60);
 }
 
-export const kwhToCop = (kwh: number, tariffCopPerKwh: number) => kwh * tariffCopPerKwh;
-export const kwhToKgCo2 = (kwh: number, factor: number = ENERGY.emissionFactorKgCo2PerKwh) => kwh * factor;
+export const kwhToCop = (kwh: number, tariffCopPerKwh: number) => {
+  requireFinite(kwh, 'kwh');
+  requireNonNegative(tariffCopPerKwh, 'tariffCopPerKwh');
+  return kwh * tariffCopPerKwh;
+};
+export const kwhToKgCo2 = (kwh: number, factor: number = ENERGY.emissionFactorKgCo2PerKwh) => {
+  requireFinite(kwh, 'kwh');
+  requireNonNegative(factor, 'factor');
+  return kwh * factor;
+};
 
 /** Savings report computed from twin states, same aggregation as TwinQueryService.savings(). */
 export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: number, factor: number = ENERGY.emissionFactorKgCo2PerKwh): SavingsReport {
+  requireFinite(generatedAt, 'generatedAt');
+  requireNonNegative(factor, 'factor');
   const round = (value: number, decimals: number) => Math.round(value * 10 ** decimals) / 10 ** decimals;
   const spaces = twins.map(({ space, state }) => ({
     spaceId: space.spaceId,
@@ -53,6 +78,7 @@ export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: numbe
 
 /** Live power drawn now by the HVAC fleet versus the conventional baseline, in kW. */
 export function fleetPower(twins: readonly TwinSpace[], now: number): { actualKw: number; baselineKw: number } {
+  requireFinite(now, 'now');
   const baselineShare = inSchedule(now) ? 1 : 0;
   return twins.reduce(
     (acc, { space, state }) => ({
