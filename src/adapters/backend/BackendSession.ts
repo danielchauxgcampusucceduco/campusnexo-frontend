@@ -23,6 +23,7 @@ export class LoginRequiredError extends Error {}
 export class InvalidCredentialsError extends Error {}
 
 const STORAGE_KEY = 'campusnexo.session';
+const LOGIN_TIMEOUT_MS = 10_000;
 const ROLES: readonly Role[] = ['VIEWER', 'OPERATOR', 'ADMIN', 'SENSOR'];
 
 function parseSessionInfo(value: unknown): SessionInfo {
@@ -94,18 +95,28 @@ export async function fetchSession(apiBase: string, token: string | null, timeou
   }
 }
 
-export async function login(apiBase: string, username: string, password: string): Promise<Credentials> {
-  const response = await fetch(`${apiBase}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-  if (response.status === 401) throw new InvalidCredentialsError('Usuario o contraseña incorrectos.');
-  if (response.status === 429) throw new InvalidCredentialsError('Demasiados intentos: espera un minuto.');
-  if (!response.ok) throw new BackendUnavailableError(`El servidor respondió HTTP ${response.status}`);
-  const credentials = parseCredentials(await response.json());
-  storeToken(credentials.token);
-  return credentials;
+export async function login(apiBase: string, username: string, password: string, timeoutMs = LOGIN_TIMEOUT_MS): Promise<Credentials> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${apiBase}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ username, password }),
+      signal: controller.signal,
+    });
+    if (response.status === 401) throw new InvalidCredentialsError('Usuario o contraseña incorrectos.');
+    if (response.status === 429) throw new InvalidCredentialsError('Demasiados intentos: espera un minuto.');
+    if (!response.ok) throw new BackendUnavailableError(`El servidor respondió HTTP ${response.status}`);
+    const credentials = parseCredentials(await response.json());
+    storeToken(credentials.token);
+    return credentials;
+  } catch (error) {
+    if (error instanceof InvalidCredentialsError || error instanceof BackendUnavailableError) throw error;
+    throw new BackendUnavailableError(`No se pudo completar el inicio de sesión en ${apiBase}`);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function logout(): void {

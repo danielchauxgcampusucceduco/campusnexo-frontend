@@ -53,6 +53,18 @@ describe('fetchSession', () => {
     expect(storage.setItem).not.toHaveBeenCalled();
   });
 
+  it('bounds login requests and returns control when the server stalls', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    })));
+    const failure = expect(login('/api/v1', 'daniel', 'secret', 50)).rejects.toBeInstanceOf(BackendUnavailableError);
+
+    await vi.advanceTimersByTimeAsync(50);
+    await failure;
+    vi.useRealTimers();
+  });
+
   it.each([
     [401, 'Usuario o contraseña incorrectos.'],
     [429, 'Demasiados intentos: espera un minuto.'],
