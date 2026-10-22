@@ -22,11 +22,14 @@ export function boxCenter(box: BoundingBox): NormalizedPoint {
 }
 
 export function polygonCentroid(polygon: readonly NormalizedPoint[]): NormalizedPoint {
+  if (polygon.length === 0) throw new RangeError('polygon must contain at least one point');
   const sum = polygon.reduce<[number, number]>((acc, [x, y]) => [acc[0] + x, acc[1] + y], [0, 0]);
   return [sum[0] / polygon.length, sum[1] / polygon.length];
 }
 
 export function boxAround([cx, cy]: NormalizedPoint, width: number, height: number): BoundingBox {
+  if (![cx, cy, width, height].every(Number.isFinite)) throw new RangeError('point and dimensions must be finite');
+  if (width < 0 || height < 0) throw new RangeError('box dimensions must be non-negative');
   const clamp = (value: number) => Math.min(1, Math.max(0, value));
   return {
     xMin: clamp(cx - width / 2),

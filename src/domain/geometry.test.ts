@@ -29,4 +29,13 @@ describe('geometry helpers', () => {
     expect(box.yMin).toBeCloseTo(0.88);
     expect(box.yMax).toBe(1);
   });
+
+  it('rejects empty centroid geometry instead of returning NaN coordinates', () => {
+    expect(() => polygonCentroid([])).toThrow(RangeError);
+  });
+
+  it('rejects invalid dimensions before generating normalized boxes', () => {
+    expect(() => boxAround([0.5, 0.5], -1, 0.2)).toThrow(RangeError);
+    expect(() => boxAround([0.5, 0.5], Number.POSITIVE_INFINITY, 0.2)).toThrow(RangeError);
+  });
 });
