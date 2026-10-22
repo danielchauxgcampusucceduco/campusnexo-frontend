@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PLAN_ROOMS } from './plan';
-import { seatSize, seatSpots, standingSpots } from './seats';
+import { centroid, seatSize, seatSpots, standingSpots } from './seats';
 
 const library = PLAN_ROOMS.find(({ spaceId }) => spaceId === 'BIBLIOTECA-2B')!;
 const classroom = PLAN_ROOMS.find((room) => room.seatRows !== null && room.seatColumns !== null)!;
@@ -18,5 +18,10 @@ describe('floor plan seat placement', () => {
     expect(standingSpots(classroom, 0)).toHaveLength(0);
     expect(seatSize(classroom)).toBeGreaterThanOrEqual(0.28);
     expect(seatSize(classroom)).toBeLessThanOrEqual(0.9);
+  });
+
+  it('computes area-weighted floor polygon centroids and rejects empty outlines', () => {
+    expect(centroid([[0, 0], [4, 0], [4, 2], [0, 2]])).toEqual([2, 1]);
+    expect(() => centroid([])).toThrow('finite points');
   });
 });

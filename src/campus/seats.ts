@@ -57,11 +57,20 @@ export function seatSize(room: PlanRoom): number {
 }
 
 export function centroid(polygon: [number, number][]): [number, number] {
-  let x = 0;
-  let y = 0;
-  for (const [px, py] of polygon) {
-    x += px;
-    y += py;
+  if (polygon.length === 0 || polygon.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) {
+    throw new RangeError('polygon must contain finite points');
   }
-  return [x / polygon.length, y / polygon.length];
+  let twiceArea = 0;
+  let xMoment = 0;
+  let yMoment = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const [x1, y1] = polygon[i]!;
+    const [x2, y2] = polygon[(i + 1) % polygon.length]!;
+    const cross = x1 * y2 - x2 * y1;
+    twiceArea += cross;
+    xMoment += (x1 + x2) * cross;
+    yMoment += (y1 + y2) * cross;
+  }
+  if (Math.abs(twiceArea) > Number.EPSILON) return [xMoment / (3 * twiceArea), yMoment / (3 * twiceArea)];
+  return polygon.reduce<[number, number]>((sum, [x, y]) => [sum[0] + x / polygon.length, sum[1] + y / polygon.length], [0, 0]);
 }
