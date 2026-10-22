@@ -1,0 +1,22 @@
+import { describe, expect, it } from 'vitest';
+import { PLAN_ROOMS } from './plan';
+import { seatSize, seatSpots, standingSpots } from './seats';
+
+const library = PLAN_ROOMS.find(({ spaceId }) => spaceId === 'BIBLIOTECA-2B')!;
+const classroom = PLAN_ROOMS.find((room) => room.seatRows !== null && room.seatColumns !== null)!;
+
+describe('floor plan seat placement', () => {
+  it('shows the eight library tables in stable row-major indexes', () => {
+    const spots = seatSpots(library);
+
+    expect(spots.map(({ index }) => index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(spots.every(({ x, y, angle }) => Number.isFinite(x) && Number.isFinite(y) && angle === library.rect.angle)).toBe(true);
+  });
+
+  it('caps the people drawn beyond seats and keeps glyphs within supported sizes', () => {
+    expect(standingSpots(classroom, 100)).toHaveLength(24);
+    expect(standingSpots(classroom, 0)).toHaveLength(0);
+    expect(seatSize(classroom)).toBeGreaterThanOrEqual(0.28);
+    expect(seatSize(classroom)).toBeLessThanOrEqual(0.9);
+  });
+});
