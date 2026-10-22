@@ -30,6 +30,18 @@ describe('fetchSession', () => {
     });
   });
 
+  it('aborts an unresponsive session probe after its configured timeout', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    })));
+    const failure = expect(fetchSession('/api/v1', null, 100)).rejects.toBeInstanceOf(BackendUnavailableError);
+
+    await vi.advanceTimersByTimeAsync(100);
+    await failure;
+    vi.useRealTimers();
+  });
+
   it('does not store a token from a malformed login response', async () => {
     const storage = { setItem: vi.fn(), removeItem: vi.fn(), getItem: vi.fn() };
     vi.stubGlobal('sessionStorage', storage);
