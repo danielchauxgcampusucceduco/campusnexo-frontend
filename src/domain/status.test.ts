@@ -38,4 +38,9 @@ describe('space status policy', () => {
     expect(() => classifySpace({ ...base, reservation: { ...reservation, endsAt: now } })).toThrow('interval');
     expect(() => classifySpace({ ...base, reservation: { ...reservation, expectedAttendees: -1 } })).toThrow('expectedAttendees');
   });
+
+  it('rejects non-boolean status flags at the domain boundary', () => {
+    expect(() => classifySpace({ ...base, maintenance: 'false' } as never)).toThrow('must be booleans');
+    expect(() => classifySpace({ ...base, popUpActive: 1 } as never)).toThrow('must be booleans');
+  });
 });
