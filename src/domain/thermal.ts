@@ -50,6 +50,12 @@ const fixed = (value: number, digits = 1) => value.toFixed(digits);
 
 /** First-order RC model: T(k+1) = Tout + (T(k) − Tout)·e^(−Δt/τ) + g·n·(50/A)·Δt/60. */
 export function freeRunning(indoorC: number, outdoorC: number, occupants: number, areaSqm: number, horizonMinutes: number): number[] {
+  if (![indoorC, outdoorC, occupants, areaSqm, horizonMinutes].every(Number.isFinite)) {
+    throw new RangeError('thermal inputs must be finite');
+  }
+  if (!Number.isInteger(occupants) || occupants < 0 || areaSqm <= 0 || horizonMinutes < 0) {
+    throw new RangeError('occupants, area and horizon must be non-negative with positive area');
+  }
   const { stepMinutes, timeConstantMinutes, occupantGainCPerHour } = THERMAL_PARAMETERS;
   const steps = Math.max(1, Math.ceil(horizonMinutes / stepMinutes));
   const decay = Math.exp(-stepMinutes / timeConstantMinutes);
@@ -76,8 +82,19 @@ function decision(state: HvacControlState, setpoint: number, horizon: number, tr
 
 /** Port of ThermalInertiaMpcDomainService.decide. */
 export function decideThermal(context: ThermalContext): ThermalDecision {
+  const { indoorTemperatureC, outdoorTemperatureC, occupants, areaSqm, co2Ppm, band,
+    minutesUntilOccupancyEnds, minutesUntilNextOccupancy } = context;
+  if (![indoorTemperatureC, outdoorTemperatureC, occupants, areaSqm, co2Ppm, band.lowC, band.highC].every(Number.isFinite)) {
+    throw new RangeError('thermal context must be finite');
+  }
+  if (!Number.isInteger(occupants) || occupants < 0 || areaSqm <= 0 || co2Ppm < 0
+      || band.lowC >= band.highC
+      || (minutesUntilOccupancyEnds !== null && (!Number.isFinite(minutesUntilOccupancyEnds) || minutesUntilOccupancyEnds < 0))
+      || (minutesUntilNextOccupancy !== null && (!Number.isFinite(minutesUntilNextOccupancy) || minutesUntilNextOccupancy < 0))) {
+    throw new RangeError('thermal context is outside its domain');
+  }
   const p = THERMAL_PARAMETERS;
-  const { band, indoorTemperatureC: indoor } = context;
+  const { indoorTemperatureC: indoor } = context;
   const midpoint = (band.lowC + band.highC) / 2;
 
   if (context.occupants > 0) {

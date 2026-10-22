@@ -70,6 +70,22 @@ describe('MPC térmico', () => {
     expect(trajectory.at(-1)!).toBeLessThan(20.2);
   });
 
+  it('rechaza contexto térmico no finito, áreas nulas y horizontes negativos', () => {
+    expect(() => freeRunning(20, 14, 0, 0, 10)).toThrow(RangeError);
+    expect(() => freeRunning(Number.NaN, 14, 0, 50, 10)).toThrow(RangeError);
+    expect(() => freeRunning(20, 14, 0, 50, -1)).toThrow(RangeError);
+    expect(() => decideThermal({
+      indoorTemperatureC: 20,
+      outdoorTemperatureC: 14,
+      occupants: 0,
+      areaSqm: 50,
+      co2Ppm: 400,
+      band: { lowC: 25, highC: 20 },
+      minutesUntilOccupancyEnds: null,
+      minutesUntilNextOccupancy: null,
+    })).toThrow(RangeError);
+  });
+
   it('elige las mismas estrategias que el servicio Java', () => {
     const andean = comfortBand('SEDE_ANDINA');
     const tropical = comfortBand('SEDE_TROPICAL');
