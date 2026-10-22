@@ -48,4 +48,16 @@ describe('desk ghosting policy', () => {
     expect(() => evaluateDeskGhosting(roi, [], undefined, Number.NaN)).toThrow(RangeError);
     expect(() => evaluateDeskGhosting(roi, [], undefined, Number.POSITIVE_INFINITY)).toThrow(RangeError);
   });
+
+  it('ignores detections whose center lies outside the desk ROI', () => {
+    const narrowRoi: StudyZoneRoi = {
+      zoneId: 'Z2', label: 'Mesa pequeña', polygon: [[0.1, 0.1], [0.3, 0.1], [0.3, 0.3], [0.1, 0.3]],
+    };
+
+    const result = evaluateDeskGhosting(narrowRoi, [detection('PERSON'), detection('LAPTOP')], undefined, now);
+
+    expect(result.state).toBe('DISPONIBLE');
+    expect(result.peopleInside).toBe(0);
+    expect(result.belongingsInside).toBe(0);
+  });
 });
