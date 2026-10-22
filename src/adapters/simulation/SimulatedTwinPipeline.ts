@@ -10,17 +10,20 @@ import {
   type EnvironmentReading,
   type HexagonalLayer,
   type HvacControlState,
+  type ReservationOrigin,
   type SpaceTwinState,
   type StudyZoneRoi,
   type TelemetrySnapshot,
   type TraceStep,
 } from '../../domain/model';
 import { classifySpace, type ActiveReservation } from '../../domain/status';
+import { resolveHvac } from '../../domain/hvac';
 import { comfortBand, decideThermal } from '../../domain/thermal';
 
 export interface SimReservation extends ActiveReservation {
   reservationId: string;
   spaceId: string;
+  origin: ReservationOrigin;
 }
 
 export interface TwinRecord {
@@ -86,8 +89,11 @@ export function initialRecord(space: CampusSpace, outdoorC: number, now: number)
     state: {
       spaceId: space.spaceId,
       status: 'LIBRE',
-      hvacState: 'APAGADO',
+      hvacState: space.hvacInstalled ? 'APAGADO' : 'SIN_CLIMATIZACION',
       hvacStateSince: iso(now),
+      hvacMode: 'APAGADO',
+      hvacSetpointC: 21,
+      hvacReason: space.hvacInstalled ? 'Sin lecturas todavía' : 'El espacio no tiene equipo de climatización',
       occupancy: 0,
       occupancyEstimate: 0,
       occupancyStdDev: Math.sqrt(belief.variance),
@@ -219,12 +225,28 @@ export function processFrame(input: {
     minutesUntilOccupancyEnds: minutesUntilEnds,
     minutesUntilNextOccupancy: minutesUntilNext,
   });
-  const hvacState: HvacControlState = prev.maintenance ? 'APAGADO' : overrideActive ? 'OVERRIDE_MANUAL_DOCENTE' : thermal.recommendedState;
-  trace.step('DOMAIN_SERVICE', 'ThermalInertiaMpcDomainService', `${hvacState}: ${thermal.explanation}`);
+  trace.step('DOMAIN_SERVICE', 'ThermalInertiaMpcDomainService', `${thermal.recommendedState}: ${thermal.explanation}`);
+  const resolution = resolveHvac({
+    hvacInstalled: space.hvacInstalled,
+    maintenance: prev.maintenance,
+    overrideActive,
+    previous: { state: prev.hvacState, mode: prev.hvacMode, setpointC: prev.hvacSetpointC, since: Date.parse(prev.hvacStateSince), reason: prev.hvacReason },
+    predicted: thermal,
+    profile: space.climateProfile,
+    climate: { occupied: people > 0, indoorTemperatureC: sensors.indoor, outdoorTemperatureC: sensors.outdoor, humidityPct: sensors.humidity },
+    firstDecision: !previous.initialized,
+    now,
+  });
+  const hvacState: HvacControlState = resolution.state;
+  const hvacUnchanged = hvacState === prev.hvacState && resolution.mode === prev.hvacMode;
+  trace.step('DOMAIN_SERVICE', 'HvacSettingChain', `${resolution.decidedBy} → ${hvacState} / ${resolution.mode}`);
 
   const previousUpdate = Date.parse(prev.updatedAt);
-  const saved = previous.initialized ? prev.energySavedKwh + savedKwh(prev.hvacState, previousUpdate, now, space.areaSqm) : prev.energySavedKwh;
-  const strategyChanged = hvacState !== prev.hvacState || !previous.initialized;
+  const saved = previous.initialized && space.hvacInstalled
+    ? prev.energySavedKwh + savedKwh(prev.hvacState, previousUpdate, now, space.areaSqm) : prev.energySavedKwh;
+  // Java: HvacSetting.differsFrom — the setpoint only matters while the unit runs.
+  const strategyChanged = !previous.initialized || !hvacUnchanged
+    || (COMPRESSOR_ON.has(hvacState) && resolution.setpointC !== prev.hvacSetpointC);
 
   let equipment = environment
     ? { lightsOn: environment.lightsOn, illuminanceLux: environment.illuminanceLux, devicesOn: Math.min(environment.devicesOn, space.computers) }
@@ -254,7 +276,10 @@ export function processFrame(input: {
     ...prev,
     status,
     hvacState,
-    hvacStateSince: strategyChanged ? iso(now) : prev.hvacStateSince,
+    hvacStateSince: hvacUnchanged && previous.initialized ? prev.hvacStateSince : iso(now),
+    hvacMode: resolution.mode,
+    hvacSetpointC: resolution.setpointC,
+    hvacReason: resolution.explanation,
     occupancy: people,
     occupancyEstimate: round3(belief.estimate),
     occupancyStdDev: round3(Math.sqrt(belief.variance)),
@@ -281,17 +306,17 @@ export function processFrame(input: {
     trace.step('USE_CASE', 'TelemetryUseCase.ingest', 'Lectura agregada guardada; observadores de alertas notificados');
   }
   trace.outbound('SpaceRepositoryPort.saveTwin', 'InMemorySpaceRepository', `${status} / ${hvacState}`);
-  if (strategyChanged) {
-    trace.outbound('HvacActuatorCommandPort.send', 'SimulatedEsp32Actuator',
-      `${prev.hvacState} → ${hvacState}${COMPRESSOR_ON.has(hvacState) ? ' (compresor encendido)' : ''}`);
+  const commandSent = space.hvacInstalled && strategyChanged;
+  if (commandSent) {
+    trace.outbound('HvacActuatorCommandPort.send', 'SimulatedEsp32Actuator', `${prev.hvacState} → ${hvacState} (${resolution.mode})`);
   }
   if (equipmentCommand) {
     const actions = [equipmentCommand.lightsOff ? 'apagar luces' : null, equipmentCommand.suspendDevices ? 'suspender equipos' : null].filter(Boolean).join(' y ');
     trace.outbound('RoomEquipmentCommandPort.send', 'SimulatedArduinoRelay', actions);
   }
-  trace.outbound('RealtimeDashboardNotifierPort.publishTwinUpdate', 'InMemoryDashboardNotifier', 'Gemelo actualizado');
+  trace.outbound('TwinChangeNotifierPort.publishTwinUpdate', 'InMemoryTwinChangeNotifier', 'Gemelo actualizado');
 
-  return { record: { state, belief, initialized: true }, trace: trace.finish(), commandSent: strategyChanged, equipmentCommand };
+  return { record: { state, belief, initialized: true }, trace: trace.finish(), commandSent, equipmentCommand };
 }
 
 function describe(lightsOn: boolean, devicesOn: number, devicesTotal: number): string {

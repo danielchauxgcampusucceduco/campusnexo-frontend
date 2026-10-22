@@ -83,7 +83,8 @@ export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: numbe
   requireNonNegative(factor, 'factor');
   if (!Number.isFinite(new Date(generatedAt).getTime())) throw new RangeError('generatedAt must be a valid timestamp');
   const round = (value: number, decimals: number) => Math.round(value * 10 ** decimals) / 10 ** decimals;
-  const spaces = twins.map(({ space, state }) => {
+  // Only rooms with a climate unit have a baseline to save against (backend: TwinQueryService.savings).
+  const spaces = twins.filter(({ space }) => space.hvacInstalled).map(({ space, state }) => {
     requireFinite(state.energySavedKwh, `energySavedKwh for ${space.spaceId}`);
     return {
     spaceId: space.spaceId,
@@ -110,7 +111,7 @@ export function savingsFromTwins(twins: readonly TwinSpace[], generatedAt: numbe
 export function fleetPower(twins: readonly TwinSpace[], now: number): { actualKw: number; baselineKw: number } {
   requireFinite(now, 'now');
   const baselineShare = inSchedule(now) ? 1 : 0;
-  return twins.reduce(
+  return twins.filter(({ space }) => space.hvacInstalled).reduce(
     (acc, { space, state }) => ({
       actualKw: acc.actualKw + powerFraction(state.hvacState) * ratedKw(space.areaSqm),
       baselineKw: acc.baselineKw + baselineShare * ratedKw(space.areaSqm),

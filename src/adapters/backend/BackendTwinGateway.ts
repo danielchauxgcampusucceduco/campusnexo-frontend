@@ -7,7 +7,7 @@ import type {
   SpaceTwinState,
   TwinSpace,
 } from '../../domain/model';
-import { HVAC_CONTROL_STATES, SPACE_STATUSES } from '../../domain/model';
+import { HVAC_CONTROL_STATES, HVAC_MODES, SPACE_STATUSES } from '../../domain/model';
 import { SCENARIO_CATALOG } from '../../domain/scenarios';
 import type { CameraFrame, ConnectionState, GatewayCapabilities, GatewayUser, TwinGateway, TwinSnapshot } from '../../ports/TwinGateway';
 import { reconstructFrame } from './reconstructFrame';
@@ -17,7 +17,7 @@ const SAVINGS_REFRESH_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const TWIN_NUMERIC_FIELDS = [
   'occupancy', 'occupancyEstimate', 'occupancyStdDev', 'indoorTemperatureC', 'outdoorTemperatureC',
-  'co2Ppm', 'humidityPct', 'energySavedKwh', 'illuminanceLux', 'devicesOn', 'devicesTotal',
+  'co2Ppm', 'humidityPct', 'energySavedKwh', 'illuminanceLux', 'devicesOn', 'devicesTotal', 'hvacSetpointC',
 ] as const;
 const TWIN_BOOLEAN_FIELDS = ['cameraOnline', 'maintenance', 'lightsOn'] as const;
 
@@ -180,7 +180,7 @@ export class BackendTwinGateway implements TwinGateway {
       const state = JSON.parse(message.body) as SpaceTwinState;
       if (!state || typeof state !== 'object' || typeof state.spaceId !== 'string'
           || !state.spaceId.trim() || state.spaceId !== state.spaceId.trim() || !SPACE_STATUSES.includes(state.status)
-          || !HVAC_CONTROL_STATES.includes(state.hvacState)
+          || !HVAC_CONTROL_STATES.includes(state.hvacState) || !HVAC_MODES.includes(state.hvacMode)
           || !TWIN_NUMERIC_FIELDS.every((field) => Number.isFinite(state[field]))
           || !TWIN_BOOLEAN_FIELDS.every((field) => typeof state[field] === 'boolean')
           || !Number.isSafeInteger(state.occupancy) || state.occupancy < 0

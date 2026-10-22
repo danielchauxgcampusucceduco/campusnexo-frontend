@@ -6,7 +6,7 @@ const space: CampusSpace = {
   spaceId: '203-A', name: 'Aula 203', type: 'AULA', capacity: 6, areaSqm: 20,
   buildingId: 'A', buildingName: 'Bloque A', branchId: 'PST', branchName: 'Pasto', city: 'Pasto',
   climateProfile: 'SEDE_ANDINA', energyTariffCopPerKwh: 14, floor: 2, computers: 0,
-  seatRows: 2, seatColumns: 3,
+  seatRows: 2, seatColumns: 3, hvacInstalled: true, simulationAllowed: false,
 };
 
 describe('seat grid policy', () => {

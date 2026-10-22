@@ -26,11 +26,12 @@ describe('energy accounting policy', () => {
   });
 
   it('keeps fleet actual draw separate from the scheduled conventional baseline', () => {
-    const space = { space: { areaSqm: 50 }, state: { hvacState: 'VENTILACION_CO2_ACTIVA' } } as never;
+    const space = { space: { areaSqm: 50, hvacInstalled: true }, state: { hvacState: 'VENTILACION_CO2_ACTIVA' } } as never;
+    const noUnit = { space: { areaSqm: 80, hvacInstalled: false }, state: { hvacState: 'SIN_CLIMATIZACION' } } as never;
     const atSevenBogota = Date.parse('2026-10-21T12:00:00Z');
 
     expect(ratedKw(50)).toBe(6);
-    expect(fleetPower([space], atSevenBogota)).toEqual({ actualKw: 1.5, baselineKw: 6 });
+    expect(fleetPower([space, noUnit], atSevenBogota)).toEqual({ actualKw: 1.5, baselineKw: 6 });
   });
 
   it('rejects invalid physical inputs before they contaminate energy reports', () => {
@@ -48,11 +49,21 @@ describe('energy accounting policy', () => {
 
   it('rejects non-finite accumulated energy in an individual twin', () => {
     const twin = {
-      space: { spaceId: 'A-301', name: 'Aula', branchName: 'Pasto', areaSqm: 50, energyTariffCopPerKwh: 900 },
+      space: { spaceId: 'A-301', name: 'Aula', branchName: 'Pasto', areaSqm: 50, energyTariffCopPerKwh: 900, hvacInstalled: true },
       state: { hvacState: 'APAGADO', energySavedKwh: Number.NaN },
     } as never;
 
     expect(() => savingsFromTwins([twin], Date.parse('2026-10-21T12:00:00Z')))
       .toThrow('energySavedKwh for A-301 must be finite');
+  });
+
+  it('reports savings only for rooms with a climate unit', () => {
+    const twin = (spaceId: string, hvacInstalled: boolean) => ({
+      space: { spaceId, name: spaceId, branchName: 'Pasto', areaSqm: 50, energyTariffCopPerKwh: 900, hvacInstalled },
+      state: { hvacState: hvacInstalled ? 'APAGADO' : 'SIN_CLIMATIZACION', energySavedKwh: 2 },
+    }) as never;
+    const report = savingsFromTwins([twin('AULA', true), twin('OFICINA', false)], Date.parse('2026-10-21T12:00:00Z'));
+    expect(report.spaces.map((s) => s.spaceId)).toEqual(['AULA']);
+    expect(report.totalKwh).toBe(2);
   });
 });

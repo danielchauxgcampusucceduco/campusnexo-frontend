@@ -136,6 +136,7 @@ describe('BackendTwinGateway capabilities', () => {
       occupancy: 0, occupancyEstimate: 0, occupancyStdDev: 0, indoorTemperatureC: 20,
       outdoorTemperatureC: 14, co2Ppm: 415, humidityPct: 55, energySavedKwh: 0,
       illuminanceLux: 0, devicesOn: 0, devicesTotal: 0, maintenance: false, lightsOn: false,
+      hvacMode: 'APAGADO', hvacSetpointC: 21, hvacReason: 'Sin lecturas todavía',
       desks: [], updatedAt: '2026-10-21T12:00:00Z',
     }) });
 
@@ -154,6 +155,7 @@ describe('BackendTwinGateway capabilities', () => {
       occupancy: 0, occupancyEstimate: 0, occupancyStdDev: 0, indoorTemperatureC: 20,
       outdoorTemperatureC: 14, co2Ppm: 415, humidityPct: 55, energySavedKwh: 0,
       illuminanceLux: 0, devicesOn: 0, devicesTotal: 0, maintenance: false, lightsOn: false,
+      hvacMode: 'APAGADO', hvacSetpointC: 21, hvacReason: 'Sin lecturas todavía',
       desks: [], updatedAt: '2026-10-21T11:59:00Z',
     }) });
 
@@ -172,10 +174,28 @@ describe('BackendTwinGateway capabilities', () => {
       occupancy: 0, occupancyEstimate: 0, occupancyStdDev: 0, indoorTemperatureC: 20,
       outdoorTemperatureC: 14, co2Ppm: 415, humidityPct: 55, energySavedKwh: 0,
       illuminanceLux: 0, devicesOn: 0, devicesTotal: 0, maintenance: false, lightsOn: false,
+      hvacMode: 'APAGADO', hvacSetpointC: 21, hvacReason: 'Sin lecturas todavía',
       desks: [], updatedAt: '2026-10-21T12:00:00Z',
     }) });
 
     expect(internal.twins[0]!.state.status).toBe('LIBRE');
+    gateway.stop();
+  });
+
+  it('rejects twin events whose HVAC mode is unknown', () => {
+    const gateway = new BackendTwinGateway('/api/v1', 'ws://localhost/ws', null, user('VIEWER'));
+    const receive = gateway as unknown as { onTwin: (message: { body: string }) => void };
+
+    receive.onTwin({ body: JSON.stringify({
+      spaceId: 'A-301', status: 'LIBRE', hvacState: 'PRE_CALENTAMIENTO_IA', cameraOnline: true,
+      occupancy: 0, occupancyEstimate: 0, occupancyStdDev: 0, indoorTemperatureC: 20,
+      outdoorTemperatureC: 14, co2Ppm: 415, humidityPct: 55, energySavedKwh: 0,
+      illuminanceLux: 0, devicesOn: 0, devicesTotal: 0, maintenance: false, lightsOn: false,
+      hvacMode: 'TURBO', hvacSetpointC: 19.5, hvacReason: 'x',
+      desks: [], updatedAt: '2026-10-21T12:00:00Z',
+    }) });
+
+    expect(gateway.getSnapshot().connection).toBe('degraded');
     gateway.stop();
   });
 

@@ -16,25 +16,25 @@ interface Node {
 const CORE: Node[] = [
   { id: 'port-process', label: 'ProcessSpace', sublabel: 'TelemetryUseCase', layer: 'INPUT_PORT', x: 252, y: 236, match: ['processspacetelemetryusecase'] },
   { id: 'port-reeval', label: 'SpaceReevaluation', sublabel: 'UseCase', layer: 'INPUT_PORT', x: 252, y: 364, match: ['spacereevaluationusecase'] },
-  { id: 'use-case', label: 'ProcessSpace', sublabel: 'TelemetryService', layer: 'USE_CASE', x: 500, y: 142, match: ['processspacetelemetryservice'] },
+  { id: 'use-case', label: 'ProcessSpace', sublabel: 'TelemetryService', layer: 'USE_CASE', x: 500, y: 142, match: ['processspacetelemetryservice', 'processcameraframeservice', 'processenvironmentreadingservice', 'spacereevaluationservice'] },
   { id: 'use-ingest', label: 'TelemetryUseCase', sublabel: 'ingest + alertas', layer: 'USE_CASE', x: 500, y: 458, match: ['telemetryusecase.ingest'] },
   { id: 'dom-kalman', label: 'OccupancyKalman', sublabel: 'DomainService', layer: 'DOMAIN_SERVICE', x: 416, y: 262, match: ['occupancykalman'] },
   { id: 'dom-roi', label: 'StudyZoneRoi', sublabel: 'ray casting', layer: 'DOMAIN_SERVICE', x: 584, y: 262, match: ['studyzoneroi'] },
   { id: 'dom-status', label: 'SpaceStatus', sublabel: 'Policy', layer: 'DOMAIN_SERVICE', x: 416, y: 338, match: ['spacestatuspolicy'] },
-  { id: 'dom-mpc', label: 'ThermalInertia', sublabel: 'MpcDomainService', layer: 'DOMAIN_SERVICE', x: 584, y: 338, match: ['thermalinertiampc'] },
+  { id: 'dom-mpc', label: 'MPC + cadena', sublabel: 'HvacSettingChain', layer: 'DOMAIN_SERVICE', x: 584, y: 338, match: ['thermalinertiampc', 'hvacsettingchain'] },
   { id: 'port-repo', label: 'SpaceRepository', sublabel: 'Port', layer: 'OUTPUT_PORT', x: 748, y: 208, match: ['spacerepositoryport'] },
   { id: 'port-hvac', label: 'HvacActuator', sublabel: 'CommandPort', layer: 'OUTPUT_PORT', x: 748, y: 300, match: ['hvacactuatorcommandport'] },
-  { id: 'port-notify', label: 'RealtimeDashboard', sublabel: 'NotifierPort', layer: 'OUTPUT_PORT', x: 748, y: 392, match: ['realtimedashboardnotifierport'] },
+  { id: 'port-notify', label: 'TwinChange', sublabel: 'NotifierPort', layer: 'OUTPUT_PORT', x: 748, y: 392, match: ['twinchangenotifierport'] },
 ];
 
 const ADAPTERS: Record<DataSourceMode, Node[]> = {
   backend: [
     { id: 'in-mqtt', label: 'YoloMqttTelemetry', sublabel: 'InboundAdapter', layer: 'INBOUND_ADAPTER', x: 88, y: 146, match: ['mqtt'] },
     { id: 'in-sim', label: 'Simulation', sublabel: 'Controller (REST)', layer: 'INBOUND_ADAPTER', x: 88, y: 300, match: ['simulation'] },
-    { id: 'in-rest', label: 'CampusNexoRest', sublabel: 'Controller / app', layer: 'INBOUND_ADAPTER', x: 88, y: 454, match: ['campusnexorestcontroller', 'twincontrol', 'app estudiantil'] },
+    { id: 'in-rest', label: 'TwinController', sublabel: 'REST / app', layer: 'INBOUND_ADAPTER', x: 88, y: 454, match: ['twincontroller', 'twiningestioncontroller', 'twincontrol', 'app estudiantil'] },
     { id: 'out-repo', label: 'PostgresSpace', sublabel: 'RepositoryAdapter', layer: 'OUTBOUND_ADAPTER', x: 912, y: 146, match: ['postgres', 'repository'] },
     { id: 'out-hvac', label: 'Esp32HvacActuator', sublabel: 'Adapter (MQTT)', layer: 'OUTBOUND_ADAPTER', x: 912, y: 300, match: ['esp32', 'actuator'] },
-    { id: 'out-notify', label: 'StompRealtime', sublabel: 'DashboardNotifier', layer: 'OUTBOUND_ADAPTER', x: 912, y: 454, match: ['stomp', 'notifier'] },
+    { id: 'out-notify', label: 'StompTwinChange', sublabel: 'NotifierAdapter', layer: 'OUTBOUND_ADAPTER', x: 912, y: 454, match: ['stomp', 'notifier'] },
   ],
   simulation: [
     { id: 'in-mqtt', label: 'YoloMqttTelemetry', sublabel: 'simulado', layer: 'INBOUND_ADAPTER', x: 88, y: 146, match: ['mqtt'] },

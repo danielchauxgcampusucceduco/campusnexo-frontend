@@ -21,7 +21,6 @@ const FRAME_EVERY_REAL_MS = 1_000;
 /** The Arduino publishes every few camera frames. */
 const ENVIRONMENT_EVERY_FRAMES = 3;
 const MAX_TRACES = 40;
-const SIM_PREFIX = 'SIM-';
 /** Simulated minutes without spontaneous library events after a scenario, so the audience sees its effect. */
 const QUIET_AFTER_SCENARIO_MINUTES = 20;
 const FRAME_TRIGGER = 'MQTT · YoloMqttTelemetryInboundAdapter (simulado)';
@@ -228,8 +227,8 @@ export class InMemoryPhysicsGateway implements TwinGateway {
         this.libraryHoarding(now);
         break;
       case 'REINICIAR':
-        this.reservations = this.reservations.filter((r) => !r.reference.startsWith(SIM_PREFIX));
-        this.resetWorld();
+        this.reservations = this.reservations.filter((r) => r.origin !== 'SIMULACION');
+        this.resetWorld(true);
         this.processAll(SCENARIO_TRIGGER);
         return this.traces[0] ?? null;
     }
@@ -251,14 +250,19 @@ export class InMemoryPhysicsGateway implements TwinGateway {
 
   // ---- world -------------------------------------------------------------------------------
 
-  private resetWorld(): void {
-    this.rooms.clear();
-    for (const space of SEED_SPACES) {
+  /**
+   * Builds the morning campus. With {@code onlyDemoRooms} (the REINICIAR scenario) only the rooms the demonstration may
+   * change are rebuilt, as in the backend: the rest of the campus keeps its state.
+   */
+  private resetWorld(onlyDemoRooms = false): void {
+    const affected = SEED_SPACES.filter((space) => !onlyDemoRooms || space.simulationAllowed);
+    if (!onlyDemoRooms) this.rooms.clear();
+    for (const space of affected) {
       const physics = new RoomPhysics(space, CAMPUS.averageOutsideC, regionsOf(space));
       this.rooms.set(space.spaceId, { physics, record: initialRecord(space, CAMPUS.averageOutsideC, this.simNow), forgotEquipment: false });
     }
     const scenarioRooms = new Set(SCENARIO_CATALOG.map((s) => s.spaceId));
-    for (const space of SEED_SPACES) {
+    for (const space of affected) {
       // Scenario rooms start empty so each scenario shows its own effect.
       const people = scenarioRooms.has(space.spaceId) && space.spaceId !== LIBRARY_ID ? 0 : morningPeople(space);
       if (people === 0 && space.spaceId !== LIBRARY_ID) continue;
@@ -269,7 +273,9 @@ export class InMemoryPhysicsGateway implements TwinGateway {
       physics.setLights(true);
       physics.setDevices(this.devicesInUse(physics, people));
     }
+    const rebuilt = new Set(affected.map((space) => space.spaceId));
     for (const [spaceId, forgotten] of Object.entries(MORNING_FORGOTTEN)) {
+      if (!rebuilt.has(spaceId)) continue;
       const room = this.room(spaceId);
       room.physics.setLights(forgotten.lights);
       room.physics.setDevices(forgotten.devices ? room.physics.space.computers : 0);
@@ -339,13 +345,14 @@ export class InMemoryPhysicsGateway implements TwinGateway {
   }
 
   private reserve(spaceId: string, startsAt: number, endsAt: number, expectedAttendees: number, scenario: SimulationScenario): void {
-    this.reservations = this.reservations.filter((r) => !(r.spaceId === spaceId && r.reference.startsWith(SIM_PREFIX)
+    this.reservations = this.reservations.filter((r) => !(r.spaceId === spaceId && r.origin === 'SIMULACION'
       && r.startsAt < endsAt && r.endsAt > startsAt));
-    this.reservations.push({ reservationId: crypto.randomUUID(), spaceId, startsAt, endsAt, expectedAttendees, reference: SIM_PREFIX + scenario });
+    this.reservations.push({ reservationId: crypto.randomUUID(), spaceId, startsAt, endsAt, expectedAttendees,
+      reference: `SIM-${scenario}`, origin: 'SIMULACION' });
   }
 
   private clearSimulationReservations(spaceId: string): void {
-    this.reservations = this.reservations.filter((r) => !(r.spaceId === spaceId && r.reference.startsWith(SIM_PREFIX)));
+    this.reservations = this.reservations.filter((r) => !(r.spaceId === spaceId && r.origin === 'SIMULACION'));
   }
 
   // ---- loop --------------------------------------------------------------------------------
@@ -527,7 +534,7 @@ export class InMemoryPhysicsGateway implements TwinGateway {
         space,
         state: room.record.state,
         activeReservation: active
-          ? { reservationId: active.reservationId, startsAt: new Date(active.startsAt).toISOString(), endsAt: new Date(active.endsAt).toISOString(), expectedAttendees: active.expectedAttendees, reference: active.reference }
+          ? { reservationId: active.reservationId, startsAt: new Date(active.startsAt).toISOString(), endsAt: new Date(active.endsAt).toISOString(), expectedAttendees: active.expectedAttendees, reference: active.reference, origin: active.origin }
           : null,
         rois: room.physics.rois.slice(),
       };

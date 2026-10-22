@@ -156,6 +156,42 @@ describe('escenarios de la simulación local', () => {
     expect(state.kalman?.measurements).toHaveLength(2);
   });
 
+  it('un espacio sin equipo de clima nunca se climatiza ni acumula ahorro', () => {
+    const twins = new InMemoryPhysicsGateway(START).getSnapshot().twins;
+    const withoutUnit = twins.filter((t) => !t.space.hvacInstalled);
+    expect(withoutUnit.length).toBeGreaterThan(0);
+    expect(twins.filter((t) => t.space.hvacInstalled)).toHaveLength(63);
+    for (const twin of withoutUnit) {
+      expect(twin.state.hvacState).toBe('SIN_CLIMATIZACION');
+      expect(twin.state.energySavedKwh).toBe(0);
+    }
+  });
+
+  it('cada estrategia declara el modo del equipo y la regla que decidió', async () => {
+    const { state } = await stateAfter('OVERRIDE_DOCENTE', '420-A');
+    expect(state.hvacMode).not.toBe('APAGADO');
+    expect(state.hvacReason).toContain('Control manual del docente');
+    const { trace } = await stateAfter('CLASE_EN_CURSO', '421-A');
+    expect(trace?.steps.some((s) => s.component === 'HvacSettingChain')).toBe(true);
+  });
+
+  it('reiniciar solo toca los salones de la demostración', async () => {
+    const gateway = new InMemoryPhysicsGateway(START);
+    const camera = (spaceId: string) => gateway.getSnapshot().twins.find((t) => t.space.spaceId === spaceId)!.state.cameraOnline;
+    const outsideId = gateway.getSnapshot().twins.find((t) => !t.space.simulationAllowed && t.rois.length > 0)!.space.spaceId;
+    gateway.setCameraOnline(outsideId, false);
+    gateway.setCameraOnline('421-A', false);
+    await gateway.runScenario('REINICIAR');
+    expect(camera('421-A')).toBe(true);
+    expect(camera(outsideId)).toBe(false);
+    expect(gateway.getSnapshot().twins.filter((t) => t.space.simulationAllowed)).toHaveLength(11);
+  });
+
+  it('las reservas de un escenario tienen origen SIMULACION', async () => {
+    const { twin } = await stateAfter('CLASE_EN_CURSO', '421-A');
+    expect(twin.activeReservation?.origin).toBe('SIMULACION');
+  });
+
   it('el check-in pone a un estudiante en la mesa', async () => {
     const gateway = new InMemoryPhysicsGateway(START);
     await gateway.checkIn('BIBLIOTECA-2B', 'BIB2B-M08');
