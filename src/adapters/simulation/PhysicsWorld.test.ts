@@ -58,6 +58,14 @@ describe('RoomPhysics', () => {
     expect(room.devicesOn).toBe(0);
   });
 
+  it('rejects unknown HVAC modes before integrating the room climate', () => {
+    const room = physics();
+    const before = { indoorC: room.indoorC, co2Ppm: room.co2Ppm, humidityPct: room.humidityPct };
+
+    expect(() => room.integrate(5, 'UNKNOWN' as never, 24)).toThrow('unknown HVAC state');
+    expect(room).toMatchObject(before);
+  });
+
   it('rejects people and unbounded object lists as desk belongings', () => {
     const room = physics();
     const deskId = room.rois[0]!.zoneId;
