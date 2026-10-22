@@ -60,4 +60,13 @@ describe('desk ghosting policy', () => {
     expect(result.peopleInside).toBe(0);
     expect(result.belongingsInside).toBe(0);
   });
+
+  it('verifies occupancy when a person and belongings are present together', () => {
+    const result = evaluateDeskGhosting(roi, [detection('PERSON'), detection('BACKPACK')], undefined, now);
+
+    expect(result.state).toBe('OCUPADO_VERIFICADO');
+    expect(result.peopleInside).toBe(1);
+    expect(result.belongingsInside).toBe(1);
+    expect(result.unattendedSince).toBeNull();
+  });
 });
