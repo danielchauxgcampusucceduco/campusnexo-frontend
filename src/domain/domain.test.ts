@@ -52,6 +52,16 @@ describe('Kalman', () => {
     expect(offline.step.measurements).toHaveLength(2);
     expect(offline.posterior.variance).toBeGreaterThan(online.posterior.variance);
   });
+
+  it('rechaza timestamps regresivos y medidas no finitas antes de mutar el cálculo', () => {
+    const belief = uninformedBelief(T0, 32);
+    expect(() => kalmanUpdate(belief, { ...snapshot(false, 0), capturedAt: T0 - 1 }, { capacity: 32, areaSqm: 48 })).toThrow(RangeError);
+    expect(() => kalmanUpdate(belief, { ...snapshot(false, 0), co2Ppm: Number.NaN }, { capacity: 32, areaSqm: 48 })).toThrow(RangeError);
+  });
+
+  it('requires positive floor area for CO2 mass-balance conversion', () => {
+    expect(() => kalmanUpdate(uninformedBelief(T0, 32), snapshot(false, 0), { capacity: 32, areaSqm: 0 })).toThrow(RangeError);
+  });
 });
 
 describe('MPC térmico', () => {

@@ -18,6 +18,8 @@ export interface OccupancyBelief {
 }
 
 export function uninformedBelief(at: number, capacity: number): OccupancyBelief {
+  if (!Number.isFinite(at)) throw new RangeError('belief timestamp must be finite');
+  if (!Number.isFinite(capacity) || capacity < 0) throw new RangeError('capacity must be finite and non-negative');
   return { estimate: 0, variance: Math.max(4, (capacity * capacity) / 4), at };
 }
 
@@ -38,6 +40,18 @@ export function kalmanUpdate(
   snapshot: TelemetrySnapshot,
   space: { capacity: number; areaSqm: number },
 ): { step: KalmanStep; posterior: OccupancyBelief } {
+  if (![previous.estimate, previous.variance, previous.at, snapshot.capturedAt].every(Number.isFinite)) {
+    throw new RangeError('belief and snapshot values must be finite');
+  }
+  if (previous.estimate < 0 || previous.variance < 0 || snapshot.capturedAt < previous.at) {
+    throw new RangeError('belief state and snapshot time must be monotonic and non-negative');
+  }
+  if (!Number.isFinite(space.capacity) || space.capacity < 0 || !Number.isFinite(space.areaSqm) || space.areaSqm <= 0) {
+    throw new RangeError('space capacity and area must be valid');
+  }
+  if (!Number.isFinite(snapshot.co2Ppm) || snapshot.co2Ppm < 0 || !Number.isInteger(snapshot.wifiDevices) || snapshot.wifiDevices < 0) {
+    throw new RangeError('CO2 and Wi-Fi measurements must be non-negative');
+  }
   const minutes = Math.max(0, (snapshot.capturedAt - previous.at) / 60_000);
   let estimate = previous.estimate;
   let variance = previous.variance + KALMAN_PARAMETERS.processNoisePerMinute * minutes;
