@@ -18,4 +18,13 @@ describe('energy accounting policy', () => {
     expect(ratedKw(50)).toBe(6);
     expect(fleetPower([space], atSevenBogota)).toEqual({ actualKw: 1.5, baselineKw: 6 });
   });
+
+  it('rejects invalid physical inputs before they contaminate energy reports', () => {
+    const state = 'BLOQUEO_AHORRO_VACIO';
+
+    expect(() => ratedKw(-2)).toThrow(RangeError);
+    expect(() => savedKwh(state, Number.NaN, 10, 50)).toThrow('from must be finite');
+    expect(() => savedKwh(state, 0, 10, Number.POSITIVE_INFINITY)).toThrow('areaSqm must be finite');
+    expect(() => fleetPower([], Number.NaN)).toThrow('now must be finite');
+  });
 });
