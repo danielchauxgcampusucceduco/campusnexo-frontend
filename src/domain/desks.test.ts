@@ -43,4 +43,9 @@ describe('desk ghosting policy', () => {
     expect(empty.state).toBe('DISPONIBLE');
     expect(empty.unattendedSince).toBeNull();
   });
+
+  it('rejects invalid evaluation timestamps before producing an unusable ISO date', () => {
+    expect(() => evaluateDeskGhosting(roi, [], undefined, Number.NaN)).toThrow(RangeError);
+    expect(() => evaluateDeskGhosting(roi, [], undefined, Number.POSITIVE_INFINITY)).toThrow(RangeError);
+  });
 });
