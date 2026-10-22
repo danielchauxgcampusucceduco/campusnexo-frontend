@@ -5,6 +5,12 @@ import type { BoundingBox, NormalizedPoint } from './model';
  * point crosses the polygon boundary an odd number of times when the point is inside.
  */
 export function containsPoint(polygon: readonly NormalizedPoint[], [px, py]: NormalizedPoint): boolean {
+  if (![px, py].every(Number.isFinite) || px < 0 || px > 1 || py < 0 || py > 1) {
+    throw new RangeError('point must be finite and normalized');
+  }
+  if (polygon.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)) {
+    throw new RangeError('polygon points must be finite and normalized');
+  }
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const [ax, ay] = polygon[i]!;
