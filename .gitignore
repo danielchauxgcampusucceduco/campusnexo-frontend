@@ -1,0 +1,12 @@
+# Secrets never go to git: only the .example files are versioned.
+.env
+.env.*
+!.env.example
+secrets.h
+node_modules
+dist/
+*.local
+# Compiled output of tsc; the sources are TypeScript
+src/**/*.js
+.vercel
+coverage/
