@@ -1,0 +1,47 @@
+import { useTwin } from '../../application/TwinContext';
+import { DeskMonitor } from '../components/DeskMonitor';
+import { StatusBadge } from '../components/StatusBadge';
+import { DESK_META } from '../theme';
+import { useLiveNow } from '../components/useLiveNow';
+
+/** Reading room of the library (Flyway V9), the one with desk regions. */
+const LIBRARY_ID = 'BIBLIOTECA-2B';
+
+export function LibraryView() {
+  const { snapshot, twin } = useTwin();
+  const now = useLiveNow(snapshot.now, 1);
+  const library = twin(LIBRARY_ID);
+  if (!library) return null;
+  const desks = library.state.desks;
+  const alerts = desks.filter((d) => d.state === 'ALERTA_ACAPARAMIENTO').length;
+  const released = desks.filter((d) => d.state === 'LIBERADO_POR_ABANDONO').length;
+  const verified = desks.filter((d) => d.state === 'OCUPADO_VERIFICADO').length;
+
+  return (
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="library-title" className="min-w-0 flex-1">
+        <div className="mb-5">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 id="library-title" tabIndex={-1} className="lettering text-2xl font-semibold">Monitor anti-acaparamiento</h1>
+              <StatusBadge status={library.state.status} />
+            </div>
+            <p className="view-intro mt-1 max-w-[64ch] text-sm text-ink-soft">
+              Si en una mesa hay pertenencias pero ningún estudiante, empieza a correr un cronómetro de 15 minutos. Al terminar, la mesa se libera y vuelve a contar como disponible.
+            </p>
+          </div>
+        </div>
+
+        <dl className="mb-6 grid grid-cols-2 gap-x-8 gap-y-4 border-y border-rule py-4 sm:grid-cols-4">
+          <div><dt className="text-sm text-ink-soft">Personas en el piso</dt><dd className="lettering text-3xl font-semibold tabular-nums">{library.state.occupancy}<span className="text-base font-normal text-ink-soft"> / {library.space.capacity}</span></dd></div>
+          <div><dt className="text-sm text-ink-soft">Mesas verificadas</dt><dd className="lettering text-3xl font-semibold tabular-nums">{verified}</dd></div>
+          <div><dt className="text-sm text-ink-soft">Con cronómetro activo</dt><dd className="lettering text-3xl font-semibold tabular-nums text-st-subutilizado-ink">{alerts}</dd></div>
+          <div><dt className="text-sm text-ink-soft">Liberadas por abandono</dt><dd className="lettering text-3xl font-semibold tabular-nums" style={{ color: DESK_META.LIBERADO_POR_ABANDONO.ink }}>{released}</dd></div>
+        </dl>
+
+        <DeskMonitor rois={library.rois} desks={desks} now={now} />
+
+      </section>
+    </div>
+  );
+}
