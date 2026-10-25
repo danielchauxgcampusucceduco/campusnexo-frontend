@@ -2,59 +2,67 @@
 @import 'tailwindcss';
 
 /*
- * CampusNexo visual language: an architectural drawing sheet. Graphite linework on cool drafting
- * paper; the camera and the 2.5D twin open as night "viewports". Status colours are surveyor inks,
- * used identically in every view.
+ * CampusNexo visual language: an architectural drawing sheet in the colours of the Universidad Cooperativa de
+ * Colombia. Navy linework and headers, the UCC cyan as the signal colour, green for what is free or saved and
+ * lime for what needs attention. Cyan is too light for text on white, so text uses the darker "ink" variant of
+ * each hue (≥ 4.5:1). Red is kept only for overcrowding and critical alerts.
  */
 @theme {
   --font-sans: 'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, sans-serif;
 
-  --color-paper: #eef1ee;
-  --color-sheet: #f8faf8;
-  --color-ink: #1d262b;
-  --color-ink-soft: #5b6870;
-  --color-rule: #c9d1cf;
-  --color-night: #0f1d24;
-  --color-night-line: #2a4350;
-  --color-night-text: #cfe0dc;
-  --color-signal: #5fd0bf;
+  /* UCC brand (logo of ucc.edu.co). */
+  --color-ucc-cian: #00acc9;
+  --color-ucc-verde: #80ba27;
+  --color-ucc-lima: #cad400;
+  --color-ucc-gris: #5f5e5e;
+  --color-ucc-marino: #132740;
 
-  --color-st-libre: #3c9d8f;
+  --color-paper: #f1f6f8;
+  --color-sheet: #fbfdfe;
+  --color-ink: #132740;
+  --color-ink-soft: #5f5e5e;
+  --color-rule: #cfdde3;
+  --color-night: #132740;
+  --color-night-line: #2b4566;
+  --color-night-text: #d6e6ef;
+  --color-signal: #00acc9;
+
+  --color-st-libre: #80ba27;
   --color-st-espera: #8a9aa6;
-  --color-st-optimo: #2f6fb0;
-  --color-st-subutilizado: #c98f1d;
+  --color-st-optimo: #00acc9;
+  --color-st-subutilizado: #cad400;
   --color-st-sobrecupo: #d2553f;
-  --color-st-noshow: #b5c24a;
-  --color-st-popup: #8a5cc4;
+  --color-st-noshow: #6f8fa6;
+  --color-st-popup: #2f6fb0;
   --color-st-mantenimiento: #6b6f73;
 
   --color-hv-frio: #3b82c4;
   --color-hv-calor: #d9822b;
-  --color-hv-ahorro: #3c9d8f;
-  --color-hv-aire: #7aa6b8;
-  --color-hv-manual: #8a5cc4;
+  --color-hv-ahorro: #80ba27;
+  --color-hv-aire: #5fc3d6;
+  --color-hv-manual: #2f6fb0;
 
   /* Text inks: the same hues darkened to pass WCAG AA (≥ 4.5:1) on paper, sheet and tinted badges.
-     The bright inks above stay for fills, dots and the night viewports. */
-  --color-st-libre-ink: #1d6a5f;
+     The bright colours above stay for fills, dots and the navy viewports. */
+  --color-st-libre-ink: #4a6e12;
   --color-st-espera-ink: #526068;
-  --color-st-optimo-ink: #245b92;
-  --color-st-subutilizado-ink: #835a08;
+  --color-st-optimo-ink: #00758a;
+  --color-st-subutilizado-ink: #5e6300;
   --color-st-sobrecupo-ink: #a63823;
-  --color-st-noshow-ink: #596620;
-  --color-st-popup-ink: #6b3fa5;
+  --color-st-noshow-ink: #3f5f75;
+  --color-st-popup-ink: #245b92;
   --color-st-mantenimiento-ink: #53575b;
   --color-hv-frio-ink: #25609a;
   --color-hv-calor-ink: #94500f;
-  --color-hv-ahorro-ink: #1d6a5f;
-  --color-hv-aire-ink: #3c697b;
-  --color-hv-manual-ink: #6b3fa5;
+  --color-hv-ahorro-ink: #4a6e12;
+  --color-hv-aire-ink: #2f6f80;
+  --color-hv-manual-ink: #245b92;
 
-  /* Room condition on the campus plan: occupancy in blue, wasted energy in warm lamp colours. */
+  /* Room condition on the campus plan: occupancy in cyan, wasted energy in warm lamp colours. */
   --color-rc-libre: #4f6672;
   --color-rc-libre-ink: #3d4f58;
-  --color-rc-ocupado: #3b82c4;
-  --color-rc-ocupado-ink: #245b92;
+  --color-rc-ocupado: #00acc9;
+  --color-rc-ocupado-ink: #00758a;
   --color-rc-sobrecupo: #e0574a;
   --color-rc-sobrecupo-ink: #a63823;
   --color-rc-luces: #f2c14e;
@@ -103,12 +111,7 @@
   }
 }
 
-/* Presentation mode: the narrator explains, so the introductory paragraphs give their room to the views. */
-[data-presentation] .view-intro {
-  display: none;
-}
-
-/* A scenario's space on the map: its footprint ripples outwards a few times. */
+/* A room whose lights and computers were just switched off: its footprint ripples outwards a few times. */
 .iso-pulse {
   transform-box: fill-box;
   transform-origin: center;
