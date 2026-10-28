@@ -3,6 +3,7 @@ import type {
   Alert,
   AlertType,
   AssignmentPlan,
+  DemoSnapshot,
   EmparejamientoCpu,
   Forecast,
   MedidasEspacio,
@@ -64,4 +65,6 @@ export interface OperacionesPort {
   /** Null while the room has no history to forecast from. */
   pronostico(spaceId: string, horas: number): Promise<Forecast | null>;
   historialCsv(spaceId: string): Promise<Blob>;
+  /** The system demo; a 404 means the server runs without it (DEMO_SIMULATION). */
+  demo(): Promise<DemoSnapshot>;
 }

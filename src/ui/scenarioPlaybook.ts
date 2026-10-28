@@ -1,6 +1,6 @@
 import type { EscenarioOperativo } from '../domain/model';
 
-export type ViewId = 'campus' | 'salon' | 'biblioteca' | 'energia' | 'funciona' | 'alertas' | 'admin';
+export type ViewId = 'campus' | 'salon' | 'biblioteca' | 'energia' | 'funciona' | 'alertas' | 'admin' | 'simulacion';
 
 export interface EscenarioMeta {
   /** Short name on the chip. */
@@ -38,4 +38,5 @@ export const VIEW_KEYS: Record<ViewId, string> = {
   funciona: 'F',
   alertas: 'A',
   admin: 'D',
+  simulacion: 'M',
 };

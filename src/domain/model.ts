@@ -423,3 +423,76 @@ export interface Forecast {
   points: { at: string; people: number; low: number; high: number }[];
   note: string | null;
 }
+
+/** GET /demo: the compressed academic day of the system demo (backend DemoSimulation). */
+export type UsoDemo = 'CLASE' | 'PRACTICA' | 'RESERVA_SIN_USO' | 'MANTENIMIENTO' | 'LIBRE';
+
+export interface FranjaDemo {
+  etiqueta: string;
+  desde: number;
+  hasta: number;
+}
+
+export interface DispositivoDemo {
+  nombre: string;
+  categoria: 'PROYECCION' | 'COMPUTO' | 'MEDICINA' | 'INGENIERIA';
+  /** Identical units grouped (the PCs of a room). */
+  cantidad: number;
+  encendidos: number;
+  pantalla: boolean;
+  /** Fridges, incubators, bioreactors: on is the expected state. */
+  siempreEncendido: boolean;
+  /** What the normal camera sees: only a lit screen tells; null when it cannot tell (no screen, or no signal). */
+  camaraNormal: boolean | null;
+  termico: 'CALIENTE' | 'TIBIO' | 'FRIO';
+  temperaturaC: number;
+  x: number | null;
+  y: number | null;
+}
+
+export interface PersonaDemo {
+  x: number;
+  y: number;
+  docente: boolean;
+  visibleCamaraNormal: boolean;
+}
+
+export interface SalaDemo {
+  spaceId: string;
+  nombre: string;
+  tipo: SpaceType;
+  edificio: string;
+  piso: number;
+  aforo: number;
+  filas: number;
+  columnas: number;
+  horario: { uso: UsoDemo; curso: string | null; detalle: string | null }[];
+  ahora: {
+    uso: UsoDemo;
+    curso: string | null;
+    personas: number;
+    personasCamaraNormal: number | null;
+    personasInfrarroja: number;
+    docente: boolean;
+    luces: boolean;
+    camaraNormalEnLinea: boolean;
+    temperaturaC: number;
+    co2Ppm: number;
+    potenciaKw: number;
+    dispositivosEncendidos: number;
+    dispositivos: DispositivoDemo[];
+    personasVistas: PersonaDemo[];
+    hallazgos: string[];
+  };
+}
+
+export interface DemoSnapshot {
+  generadoEn: string;
+  dia: number;
+  hora: string;
+  minutoDelDia: number;
+  franjaActual: number;
+  minutosSimuladosPorMinuto: number;
+  franjas: FranjaDemo[];
+  salones: SalaDemo[];
+}

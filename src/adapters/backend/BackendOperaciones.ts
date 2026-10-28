@@ -3,6 +3,7 @@ import type {
   Alert,
   AlertType,
   AssignmentPlan,
+  DemoSnapshot,
   EmparejamientoCpu,
   Forecast,
   MedidasEspacio,
@@ -102,5 +103,9 @@ export class BackendOperaciones implements OperacionesPort {
 
   historialCsv(spaceId: string): Promise<Blob> {
     return this.http(`/admin/spaces/${id(spaceId)}/historial.csv`, { as: 'blob' });
+  }
+
+  demo(): Promise<DemoSnapshot> {
+    return this.http('/demo');
   }
 }

@@ -1,4 +1,4 @@
-import { BellRing, BookOpen, Cctv, Leaf, Map, ShieldCheck, Workflow } from 'lucide-react';
+import { BellRing, BookOpen, Cctv, Leaf, Map, ScanEye, ShieldCheck, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTwin } from '../application/TwinContext';
 import type { GatewayCapabilities } from '../ports/TwinGateway';
@@ -15,6 +15,7 @@ import { EnergyView } from './views/EnergyView';
 import { HowItWorksView } from './views/HowItWorksView';
 import { LibraryView } from './views/LibraryView';
 import { SalonView } from './views/SalonView';
+import { SimulacionView } from './views/SimulacionView';
 
 interface View {
   id: ViewId;
@@ -28,6 +29,7 @@ interface View {
 const VIEWS: View[] = [
   { id: 'campus', label: 'Campus en vivo', icon: Map, component: CampusView },
   { id: 'salon', label: 'Salón', icon: Cctv, component: SalonView },
+  { id: 'simulacion', label: 'Simulación', icon: ScanEye, component: SimulacionView },
   { id: 'biblioteca', label: 'Biblioteca', icon: BookOpen, component: LibraryView },
   { id: 'alertas', label: 'Alertas', icon: BellRing, component: AlertsView, requires: 'operations' },
   { id: 'admin', label: 'Administración', icon: ShieldCheck, component: AdminView, requires: 'administration' },

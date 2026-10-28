@@ -21,7 +21,9 @@ export function DataSourceBanner() {
       {emulated.length > 0 && (
         <div role="status" className="flex items-center gap-2 border-b border-ucc-lima/70 bg-[color-mix(in_oklab,var(--color-ucc-lima)_16%,var(--color-sheet))] px-4 py-1.5 text-sm text-st-subutilizado-ink md:px-6">
           <FlaskConical className="h-4 w-4 shrink-0" />
-          <span><b>Piloto emulada.</b> {emulated.join(', ')} {emulated.length === 1 ? 'recibe' : 'reciben'} datos emulados, no de una cámara real.</span>
+          {emulated.length > 3
+            ? <span><b>Demo emulada.</b> {emulated.length} salones reciben datos de la <a href="#/simulacion" className="underline">simulación del campus</a>, no de cámaras reales.</span>
+            : <span><b>Piloto emulada.</b> {emulated.join(', ')} {emulated.length === 1 ? 'recibe' : 'reciben'} datos emulados, no de una cámara real.</span>}
         </div>
       )}
     </>
