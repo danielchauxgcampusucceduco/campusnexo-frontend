@@ -92,11 +92,26 @@ describe('BackendTwinGateway', () => {
 
   it('degrades gracefully on malformed pushed messages', () => {
     const { gateway, internal } = gatewayWith();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(() => internal.onTwin({ body: '{invalid' })).not.toThrow();
     expect(() => internal.onTrace({ body: JSON.stringify({}) })).not.toThrow();
     expect(gateway.getSnapshot().traces).toEqual([]);
-    expect(gateway.getSnapshot().connection).toBe('degraded');
+    expect(gateway.getSnapshot().connection).toBe('connecting');
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('keeps applying valid events after a bad one', () => {
+    const { gateway, internal } = gatewayWith();
+    internal.twins = [twinSpace()];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    internal.onTwin({ body: '{"spaceId":"301-A","co2Ppm":NaN}' });
+    internal.onTwin({ body: JSON.stringify(twinState({ updatedAt: '2026-10-21T12:02:00Z', status: 'OCUPADO_OPTIMO' })) });
+
+    expect(gateway.getSnapshot().twins[0]!.state.status).toBe('OCUPADO_OPTIMO');
+    warn.mockRestore();
   });
 
   it.each([
@@ -107,14 +122,17 @@ describe('BackendTwinGateway', () => {
     ['an unknown HVAC mode', { hvacMode: 'TURBO' }],
     ['no presence counts', { teachersPresent: undefined }],
     ['no recognized scenarios', { escenarios: undefined }],
-  ])('rejects twin events with %s', (_case, override) => {
+  ])('rejects twin events with %s and names the field', (_case, override) => {
     const { gateway, internal } = gatewayWith();
     internal.twins = [twinSpace()];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     internal.onTwin({ body: JSON.stringify({ ...twinState({ updatedAt: '2026-10-21T12:01:00Z' }), ...override }) });
 
     expect(internal.twins[0]!.state.updatedAt).toBe('2026-10-21T12:00:00Z');
-    expect(gateway.getSnapshot().connection).toBe('degraded');
+    expect(gateway.getSnapshot().connection).toBe('connecting');
+    expect(String(warn.mock.calls[0]?.[0])).toContain(Object.keys(override)[0] === 'hvacMode' ? 'hvacMode' : 'campo');
+    warn.mockRestore();
   });
 
   it('applies newer states and ignores out-of-order or duplicate ones', () => {

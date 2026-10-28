@@ -16,15 +16,22 @@ const TWIN_NUMERIC_FIELDS = [
 ] as const;
 const TWIN_BOOLEAN_FIELDS = ['cameraOnline', 'maintenance', 'lightsOn', 'emulated'] as const;
 
-function validTwinState(state: SpaceTwinState): boolean {
-  return !!state && typeof state === 'object' && typeof state.spaceId === 'string'
-    && !!state.spaceId.trim() && state.spaceId === state.spaceId.trim() && SPACE_STATUSES.includes(state.status)
-    && HVAC_CONTROL_STATES.includes(state.hvacState) && HVAC_MODES.includes(state.hvacMode)
-    && TWIN_NUMERIC_FIELDS.every((field) => Number.isFinite(state[field]))
-    && TWIN_BOOLEAN_FIELDS.every((field) => typeof state[field] === 'boolean')
-    && Number.isSafeInteger(state.occupancy) && state.occupancy >= 0
-    && Array.isArray(state.desks) && Array.isArray(state.escenarios) && typeof state.updatedAt === 'string'
-    && Number.isFinite(Date.parse(state.updatedAt));
+/** The first field of a pushed twin event outside the contract, or null when the event is valid. */
+export function twinContractProblem(state: SpaceTwinState): string | null {
+  if (!state || typeof state !== 'object') return 'evento';
+  if (typeof state.spaceId !== 'string' || !state.spaceId.trim() || state.spaceId !== state.spaceId.trim()) return 'spaceId';
+  if (!SPACE_STATUSES.includes(state.status)) return 'status';
+  if (!HVAC_CONTROL_STATES.includes(state.hvacState)) return 'hvacState';
+  if (!HVAC_MODES.includes(state.hvacMode)) return 'hvacMode';
+  const numeric = TWIN_NUMERIC_FIELDS.find((field) => !Number.isFinite(state[field]));
+  if (numeric) return numeric;
+  const flag = TWIN_BOOLEAN_FIELDS.find((field) => typeof state[field] !== 'boolean');
+  if (flag) return flag;
+  if (!Number.isSafeInteger(state.occupancy) || state.occupancy < 0) return 'occupancy';
+  if (!Array.isArray(state.desks)) return 'desks';
+  if (!Array.isArray(state.escenarios)) return 'escenarios';
+  if (typeof state.updatedAt !== 'string' || !Number.isFinite(Date.parse(state.updatedAt))) return 'updatedAt';
+  return null;
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -139,15 +146,24 @@ export class BackendTwinGateway implements TwinGateway {
     this.stomp.activate();
   }
 
+  /**
+   * A bad event is dropped and logged. It does not mark the feed as degraded: the socket is still delivering and
+   * the next valid event of that room brings it up to date.
+   */
   private onTwin(message: IMessage): void {
+    let state: SpaceTwinState;
     try {
-      const state = JSON.parse(message.body) as SpaceTwinState;
-      if (!validTwinState(state)) throw new TypeError('Invalid twin event contract');
-      this.accept(state);
+      state = JSON.parse(message.body) as SpaceTwinState;
     } catch {
-      this.connection = 'degraded';
-      this.publish();
+      console.warn('Evento del gemelo descartado: JSON inválido');
+      return;
     }
+    const problem = twinContractProblem(state);
+    if (problem) {
+      console.warn(`Evento del gemelo descartado (${String(state?.spaceId)}): campo ${problem} fuera de contrato`);
+      return;
+    }
+    this.accept(state);
   }
 
   private onTrace(message: IMessage): void {
@@ -159,8 +175,7 @@ export class BackendTwinGateway implements TwinGateway {
       if (!this.traces.some((t) => t.traceId === trace.traceId)) this.traces = [trace, ...this.traces].slice(0, MAX_TRACES);
       this.publish();
     } catch {
-      this.connection = 'degraded';
-      this.publish();
+      console.warn('Traza descartada: fuera de contrato');
     }
   }
 
@@ -171,6 +186,8 @@ export class BackendTwinGateway implements TwinGateway {
   private async refreshSavings(): Promise<void> {
     try {
       this.savings = await this.http<SavingsReport>('/twin/savings');
+      // A failed refresh degrades the feed; the next one that works brings it back while the socket is up.
+      if (this.connection === 'degraded' && this.stomp?.connected) this.connection = 'live';
       this.publish();
     } catch {
       if (this.connection !== 'unauthorized') this.connection = 'degraded';
