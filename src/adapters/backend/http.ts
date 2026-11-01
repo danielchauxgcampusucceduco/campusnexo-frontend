@@ -13,8 +13,8 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined>;
-  /** 'blob' for file downloads; 'none' for 204 answers. */
-  as?: 'json' | 'blob' | 'none';
+  /** 'blob' for file downloads; 'none' for 204 answers; 'page' for a list with the cursor of its next page. */
+  as?: 'json' | 'blob' | 'none' | 'page';
   timeoutMs?: number;
 }
 
@@ -27,7 +27,9 @@ export function httpClient(apiBase: string, token: string | null, onUnauthorized
     const { method = 'GET', body, query, as = 'json', timeoutMs = DEFAULT_TIMEOUT_MS } = options;
     const headers: Record<string, string> = { Accept: as === 'blob' ? '*/*' : 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    // A FormData (file upload) sets its own multipart boundary; anything else travels as JSON.
+    const form = body instanceof FormData;
+    if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(query ?? {})) if (value !== undefined) params.set(key, String(value));
     const url = `${apiBase}${path}${params.size > 0 ? `?${params}` : ''}`;
@@ -36,7 +38,7 @@ export function httpClient(apiBase: string, token: string | null, onUnauthorized
     let response: Response;
     try {
       response = await fetch(url, {
-        method, headers, signal: controller.signal, body: body === undefined ? undefined : JSON.stringify(body),
+        method, headers, signal: controller.signal, body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -62,6 +64,10 @@ export function httpClient(apiBase: string, token: string | null, onUnauthorized
     }
     if (as === 'none') return undefined as T;
     if (as === 'blob') return (await response.blob()) as T;
+    if (as === 'page') {
+      // Keyset pagination: the backend names the next page in X-Next-Cursor (exposed by its CORS policy).
+      return { items: await response.json(), next: response.headers.get('X-Next-Cursor') } as T;
+    }
     try {
       return (await response.json()) as T;
     } catch {

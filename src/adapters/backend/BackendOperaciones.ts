@@ -5,6 +5,7 @@ import type {
   AssignmentPlan,
   DemoSnapshot,
   EmparejamientoCpu,
+  ImportacionPersonas,
   Forecast,
   MedidasEspacio,
   Persona,
@@ -43,9 +44,10 @@ export class BackendOperaciones implements OperacionesPort {
     return this.http(`/spaces/${id(spaceId)}/reservations`, { method: 'POST', body: reserva });
   }
 
-  alertas(filter: { spaceId?: string; type?: AlertType } = {}): Promise<Alert[]> {
-    return this.http('/alerts', { query: { ...filter, limit: 100 } });
+  alertas(filter: { spaceId?: string; type?: AlertType } = {}, cursor?: string): Promise<{ items: Alert[]; next: string | null }> {
+    return this.http('/alerts', { query: { spaceId: filter.spaceId, type: filter.type, limit: 100, cursor }, as: 'page' });
   }
+
 
   async ajustarEspacio(spaceId: string, medidas: MedidasEspacio): Promise<void> {
     await this.http(`/admin/spaces/${id(spaceId)}`, { method: 'PUT', body: medidas });
@@ -94,7 +96,7 @@ export class BackendOperaciones implements OperacionesPort {
 
   async pronostico(spaceId: string, horas: number): Promise<Forecast | null> {
     try {
-      return await this.http<Forecast>(`/admin/spaces/${id(spaceId)}/pronostico`, { query: { horas }, timeoutMs: AI_TIMEOUT_MS });
+      return await this.http<Forecast>(`/spaces/${id(spaceId)}/pronostico`, { query: { horas }, timeoutMs: AI_TIMEOUT_MS });
     } catch (error) {
       if (error instanceof BackendError && error.code === 'history_not_available') return null;
       throw error;
@@ -103,6 +105,13 @@ export class BackendOperaciones implements OperacionesPort {
 
   historialCsv(spaceId: string): Promise<Blob> {
     return this.http(`/admin/spaces/${id(spaceId)}/historial.csv`, { as: 'blob' });
+  }
+
+  importarPersonas(archivo: File, tipo?: TipoPersona): Promise<ImportacionPersonas> {
+    const form = new FormData();
+    form.append('archivo', archivo);
+    // Up to 5 000 rows: give the backend longer than a normal request.
+    return this.http('/admin/personas/importar', { method: 'POST', body: form, query: { tipo }, timeoutMs: 60_000 });
   }
 
   demo(): Promise<DemoSnapshot> {

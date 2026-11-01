@@ -5,6 +5,7 @@ import type {
   AssignmentPlan,
   DemoSnapshot,
   EmparejamientoCpu,
+  ImportacionPersonas,
   Forecast,
   MedidasEspacio,
   Persona,
@@ -48,13 +49,16 @@ export interface OperacionesPort {
   openPopUp(spaceId: string, minutes: number): Promise<SpaceTwinState>;
   manualOverride(spaceId: string, minutes: number): Promise<SpaceTwinState>;
   reservar(spaceId: string, reserva: NuevaReserva): Promise<Reservation>;
-  alertas(filter?: { spaceId?: string; type?: AlertType }): Promise<Alert[]>;
+  /** Newest first; `cursor` asks for the page after a previous one, whose cursor `next` names (null at the end). */
+  alertas(filter?: { spaceId?: string; type?: AlertType }, cursor?: string): Promise<{ items: Alert[]; next: string | null }>;
   // ADMIN, from the administration network
   /** Applies the measurements taken on site; the backend refuses a grid that leaves workstations outside. */
   ajustarEspacio(spaceId: string, medidas: MedidasEspacio): Promise<void>;
   personas(tipo?: TipoPersona): Promise<Persona[]>;
   registrarPersona(persona: NuevaPersona): Promise<Persona>;
   eliminarPersona(codigo: string): Promise<void>;
+  /** Registers or updates everyone in a .csv or .xlsx; `tipo` applies to rows without a tipo column. */
+  importarPersonas(archivo: File, tipo?: TipoPersona): Promise<ImportacionPersonas>;
   puestos(spaceId: string): Promise<Puesto[]>;
   /** Null while the camera has not proposed the room's workstations. */
   propuesta(spaceId: string): Promise<RevisionDePuestos | null>;
