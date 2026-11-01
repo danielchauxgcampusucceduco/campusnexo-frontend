@@ -21,9 +21,9 @@ function assertRect(room: PlanRoom): void {
  * rest of the room's oriented rectangle. The library reading room shows its eight tables (4 × 2).
  */
 export function seatSpots(room: PlanRoom): SeatSpot[] {
-  if (room.seatRows === null && room.seatColumns === null && room.spaceId !== 'BIBLIOTECA-2B') return [];
-  const rows = room.seatRows ?? (room.spaceId === 'BIBLIOTECA-2B' ? 2 : 0);
-  const columns = room.seatColumns ?? (room.spaceId === 'BIBLIOTECA-2B' ? 4 : 0);
+  if (room.seatRows === null && room.seatColumns === null && room.spaceId !== 'BIBLIOTECA-2A') return [];
+  const rows = room.seatRows ?? (room.spaceId === 'BIBLIOTECA-2A' ? 2 : 0);
+  const columns = room.seatColumns ?? (room.spaceId === 'BIBLIOTECA-2A' ? 4 : 0);
   if (!Number.isSafeInteger(rows) || !Number.isSafeInteger(columns) || rows <= 0 || columns <= 0
       || rows * columns > 1_000) throw new RangeError('room seat layout must contain 1 to 1000 integer seats');
   assertRect(room);

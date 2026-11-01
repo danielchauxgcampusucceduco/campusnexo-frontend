@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PLAN_ROOMS } from './plan';
 import { centroid, seatSize, seatSpots, standingSpots } from './seats';
 
-const library = PLAN_ROOMS.find(({ spaceId }) => spaceId === 'BIBLIOTECA-2B')!;
+const library = PLAN_ROOMS.find(({ spaceId }) => spaceId === 'BIBLIOTECA-2A')!;
 const classroom = PLAN_ROOMS.find((room) => room.seatRows !== null && room.seatColumns !== null)!;
 
 describe('floor plan seat placement', () => {

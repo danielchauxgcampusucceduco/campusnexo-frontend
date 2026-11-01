@@ -5,12 +5,15 @@ import { DESK_META } from '../theme';
 import { useLiveNow } from '../components/useLiveNow';
 
 /** Reading room of the library (Flyway V9), the one with desk regions. */
-const LIBRARY_ID = 'BIBLIOTECA-2B';
+const LIBRARY_ID = 'BIBLIOTECA-2A';
+/** Silent-study tables watched by the corner camera at the back of the same floor (Flyway V13). */
+const CORNER_ID = 'BIBLIOTECA-2A-SILENCIO';
 
 export function LibraryView() {
   const { snapshot, twin } = useTwin();
   const now = useLiveNow(snapshot.now, 1);
   const library = twin(LIBRARY_ID);
+  const corner = twin(CORNER_ID);
   if (!library) return null;
   const desks = library.state.desks;
   const alerts = desks.filter((d) => d.state === 'ALERTA_ACAPARAMIENTO').length;
@@ -42,6 +45,19 @@ export function LibraryView() {
         <DeskMonitor rois={library.rois} desks={desks} now={now} />
 
       </section>
+
+      {corner && (
+        <section aria-labelledby="corner-title" className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="corner-title" className="text-lg font-semibold">Cámara esquinera · estudio silencioso</h2>
+            <StatusBadge status={corner.state.status} />
+          </div>
+          <p className="mb-4 mt-1 max-w-[64ch] text-sm text-ink-soft">
+            Está en la esquina posterior de la sala de lectura y vigila cinco mesas de estudio silencioso: tres a su izquierda, junto a la pared, y dos a su derecha, junto al fondo. {corner.state.occupancy} de {corner.space.capacity} personas.
+          </p>
+          <DeskMonitor rois={corner.rois} desks={corner.state.desks} now={now} />
+        </section>
+      )}
     </div>
   );
 }
