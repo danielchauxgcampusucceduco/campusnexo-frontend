@@ -21,6 +21,29 @@ export function TopBar() {
   const clock = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Bogota' }).format(snapshot.now);
   const power = fleetPower(snapshot.twins, snapshot.now);
   const latency = snapshot.latency;
+  const metrics = (
+    <>
+      {/* An engineering metric (QA-2): only the administration sees it. */}
+      {latency && gateway.user.role === 'ADMIN' && (
+        <span className="flex items-center gap-1.5" title={`Del frame de la cámara a esta pantalla, últimos ${latency.samples} eventos. Meta: p95 ≤ ${LATENCY_TARGET_MS / 1000} s`}>
+          <Timer className="h-4 w-4 text-signal" />
+          <span>Latencia p95</span>
+          <span className={`font-semibold tabular-nums ${latency.p95Ms <= LATENCY_TARGET_MS ? 'text-white' : 'text-[#ffb4a6]'}`}>{formatNumber(latency.p95Ms / 1000, 2)} s</span>
+        </span>
+      )}
+      <span className="flex items-center gap-1.5" title={`Climatización ahora frente a ${formatNumber(power.baselineKw)} kW de un sistema convencional con el mismo uso programado`}>
+        <Zap className="h-4 w-4 text-ucc-lima" />
+        <span className="text-night-text/75">Clima</span>
+        <span className="font-semibold text-white">{formatNumber(power.actualKw)} kW</span>
+        <span className="hidden text-night-text/75 2xl:inline">de {formatNumber(power.baselineKw)} kW sin CampusNexo</span>
+      </span>
+      {snapshot.savings && (
+        <span className="text-night-text/75" title="Ahorro estimado acumulado">
+          Ahorro <span className="font-semibold text-white">{formatNumber(snapshot.savings.totalKwh, 2)} kWh</span>, {formatCop(snapshot.savings.totalCop)}
+        </span>
+      )}
+    </>
+  );
 
   return (
     <header className="sticky top-0 z-40 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-night-line bg-night min-h-14 px-4 py-2 text-night-text md:px-6">
@@ -38,24 +61,13 @@ export function TopBar() {
       </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-        {latency && (
-          <span className="flex items-center gap-1.5" title={`Del frame de la cámara a esta pantalla, últimos ${latency.samples} eventos. Meta: p95 ≤ ${LATENCY_TARGET_MS / 1000} s`}>
-            <Timer className="h-4 w-4 text-signal" />
-            <span>Latencia p95</span>
-            <span className={`font-semibold tabular-nums ${latency.p95Ms <= LATENCY_TARGET_MS ? 'text-white' : 'text-[#ffb4a6]'}`}>{formatNumber(latency.p95Ms / 1000, 2)} s</span>
-          </span>
-        )}
-        <span className="flex items-center gap-1.5" title={`Consumo del clima ahora frente a ${formatNumber(power.baselineKw)} kW del horario convencional`}>
-          <Zap className="h-4 w-4 text-ucc-lima" />
-          <span className="font-semibold text-white">{formatNumber(power.actualKw)} kW</span>
-          <span className="hidden text-night-text/75 2xl:inline">de {formatNumber(power.baselineKw)} kW sin CampusNexo</span>
-        </span>
-        {snapshot.savings && (
-          <span className="text-night-text/75" title="Ahorro estimado acumulado">
-            Ahorro <span className="font-semibold text-white">{formatNumber(snapshot.savings.totalKwh, 2)} kWh</span>, {formatCop(snapshot.savings.totalCop)}
-          </span>
-        )}
-        <span className="font-semibold tabular-nums text-white">{clock}</span>
+        <div className="hidden flex-wrap items-center gap-x-5 gap-y-1 md:flex">{metrics}</div>
+        {/* On a phone the metrics fold into one control so the header stays one line (U2). */}
+        <details className="relative md:hidden">
+          <summary className="cursor-pointer list-none rounded-md border border-night-line px-2 py-1 text-xs">Métricas</summary>
+          <div className="absolute right-0 top-full z-50 mt-1 flex w-64 flex-col gap-2 rounded-lg border border-night-line bg-night p-3 shadow-lg">{metrics}</div>
+        </details>
+        <span className="hidden font-semibold tabular-nums text-white sm:inline">{clock}</span>
         <span className="flex items-center gap-2 text-night-text/80">
           <UserRound className="h-4 w-4" />
           <span><b className="font-semibold text-white">{gateway.user.username}</b> · {ROLE_COPY[gateway.user.role]}</span>

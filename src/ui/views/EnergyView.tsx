@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTwin } from '../../application/TwinContext';
-import { ENERGY, fleetPower, formatCop, formatNumber } from '../../domain/kpis';
+import { ENERGY, fleetPower, formatCop, formatNumber, hvacPowerKw } from '../../domain/kpis';
 import { HvacBadge } from '../components/StatusBadge';
 import { floorName } from '../../campus/plan';
 
@@ -11,6 +11,20 @@ interface PowerPoint {
   t: number;
   actual: number;
   baseline: number;
+}
+
+/**
+ * One line per space, cut with «…» and the whole name in its title: recharts wraps a long name into lines whose text
+ * reads glued together («Laboratorio deRealidad Mixta»).
+ */
+function SpaceTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+  const name = payload?.value ?? '';
+  const short = name.length > 24 ? `${name.slice(0, 23)}…` : name;
+  return (
+    <text x={x} y={y} dy={4} textAnchor="end" fontSize={13} fill="var(--color-ink)">
+      <title>{name}</title>{short}
+    </text>
+  );
 }
 
 export function EnergyView() {
@@ -46,7 +60,7 @@ export function EnergyView() {
       <section aria-labelledby="energy-title">
         <h1 id="energy-title" tabIndex={-1} className="lettering text-2xl font-semibold">Ahorro energético</h1>
         <p className="view-intro mt-1 max-w-[70ch] text-sm text-ink-soft">
-          La comparación es contra un horario convencional: aire acondicionado al 100 % de {ENERGY.scheduleStartHour}:00 a {ENERGY.scheduleEndHour}:00, con {formatNumber(ENERGY.ratedKwPerSqm, 2)} kW por m². Son estimaciones del modelo, no lecturas de medidor.
+          La comparación es contra un sistema convencional: la climatización a plena potencia mientras el salón está en uso programado (desde 30 min antes de una reserva hasta su final, o con personas dentro), entre las {ENERGY.scheduleStartHour}:00 y las {ENERGY.scheduleEndHour}:00, con {formatNumber(ENERGY.ratedKwPerSqm, 2)} kW por m². CampusNexo ahorra frente a eso al apagar con la inercia térmica, ventilar en lugar de calentar y bloquear los salones vacíos. Un salón apagado no consume. Son estimaciones del modelo, no lecturas de medidor.
         </p>
 
         <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
@@ -68,7 +82,7 @@ export function EnergyView() {
                   <CartesianGrid stroke="var(--color-rule)" strokeDasharray="3 4" vertical={false} />
                   <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} ticks={ticks} tickFormatter={(t: number) => time.format(t)} tick={{ fontSize: 12, fill: 'var(--color-ink-soft)' }} minTickGap={56} allowDuplicatedCategory={false} />
                   <YAxis tick={{ fontSize: 12, fill: 'var(--color-ink-soft)' }} unit=" kW" width={64} />
-                  <Tooltip labelFormatter={(t) => time.format(Number(t))} formatter={(v, n) => [`${Number(v).toFixed(2)} kW`, n]} contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: 'var(--color-rule)' }} />
+                  <Tooltip labelFormatter={(t) => time.format(Number(t))} formatter={(v, n) => [`${formatNumber(Number(v), 2)} kW`, n]} contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: 'var(--color-rule)' }} />
                   <Area type="stepAfter" dataKey="baseline" name="Horario convencional" stroke="var(--color-ink-soft)" fill="var(--color-rule)" fillOpacity={0.35} strokeDasharray="4 3" isAnimationActive={false} />
                   <Area type="stepAfter" dataKey="actual" name="CampusNexo" stroke="var(--color-hv-ahorro)" fill="var(--color-hv-ahorro)" fillOpacity={0.25} strokeWidth={2} isAnimationActive={false} />
                 </AreaChart>
@@ -104,8 +118,8 @@ export function EnergyView() {
               <BarChart data={bars} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
                 <CartesianGrid stroke="var(--color-rule)" strokeDasharray="3 4" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 12, fill: 'var(--color-ink-soft)' }} tickFormatter={(v: number) => `${formatNumber(v, 2)} kWh`} />
-                <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 13, fill: 'var(--color-ink)' }} />
-                <Tooltip formatter={(v) => [`${Number(v).toFixed(3)} kWh`, 'Ahorro']} contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: 'var(--color-rule)' }} />
+                <YAxis type="category" dataKey="label" width={170} tick={<SpaceTick />} interval={0} />
+                <Tooltip formatter={(v) => [`${formatNumber(Number(v), 3)} kWh`, 'Ahorro']} contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: 'var(--color-rule)' }} />
                 <Bar dataKey="kwh" radius={[0, 4, 4, 0]} isAnimationActive={false}>
                   {bars.map((bar) => <Cell key={bar.spaceId} fill={bar.kwh < 0 ? 'var(--color-st-sobrecupo)' : 'var(--color-hv-ahorro)'} />)}
                 </Bar>
@@ -123,7 +137,7 @@ export function EnergyView() {
               <tr className="border-b border-rule">
                 <th className="py-2 pr-3 font-normal">Espacio</th>
                 <th className="py-2 pr-3 font-normal">Estrategia HVAC</th>
-                <th className="py-2 pr-3 text-right font-normal">Potencia</th>
+                <th className="py-2 pr-3 text-right font-normal">Potencia ahora</th>
                 <th className="py-2 pr-3 text-right font-normal">kWh</th>
                 <th className="py-2 pr-3 text-right font-normal">Ahorro ($)</th>
                 <th className="py-2 text-right font-normal">kg CO₂</th>
@@ -134,7 +148,10 @@ export function EnergyView() {
                 <tr key={s.spaceId} className="border-b border-rule/70">
                   <td className="py-2.5 pr-3"><span className="font-medium">{s.name}</span><span className="block text-xs text-ink-soft">{branchOf(s.spaceId) || s.branchName}</span></td>
                   <td className="py-2.5 pr-3"><HvacBadge state={s.hvacState} size="sm" /></td>
-                  <td className="py-2.5 pr-3 text-right">{formatNumber(s.ratedKw, 2)} kW</td>
+                  <td className="py-2.5 pr-3 text-right">
+                    {formatNumber(twin(s.spaceId) ? hvacPowerKw(twin(s.spaceId)!) : 0, 2)} kW
+                    <span className="block text-xs text-ink-soft">de {formatNumber(s.ratedKw, 2)} kW instalados</span>
+                  </td>
                   <td className={`py-2.5 pr-3 text-right ${s.kwh < 0 ? 'text-st-sobrecupo-ink' : ''}`}>{formatNumber(s.kwh, 3)}</td>
                   <td className="py-2.5 pr-3 text-right">{formatCop(s.cop)}</td>
                   <td className="py-2.5 text-right">{formatNumber(s.kgCo2, 3)}</td>
@@ -142,7 +159,7 @@ export function EnergyView() {
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-sm text-ink-soft">Un valor negativo significa que el espacio consumió más que el horario convencional, por ejemplo al climatizar fuera de horario o al pre-enfriar.</p>
+          <p className="mt-3 text-sm text-ink-soft">Un valor negativo significa que el espacio consumió más que el sistema convencional, por ejemplo al pre-calentar antes de que este lo encendería.</p>
         </div>
       </section>
     </div>
