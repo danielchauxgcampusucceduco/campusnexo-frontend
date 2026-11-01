@@ -8,9 +8,10 @@ const hour = new Intl.DateTimeFormat('es-CO', { weekday: 'short', hour: '2-digit
 
 /**
  * Occupancy forecast of the next hours, computed by the AI service from the room's history in MongoDB
- * (weekly profile with exponential smoothing), and the history itself as CSV.
+ * (weekly profile with exponential smoothing). Any signed-in role can ask for it; the history as CSV is an
+ * administration export (it answers from the administration network only), so only administrators see that button.
  */
-export function PronosticoPanel({ spaceId }: { spaceId: string }) {
+export function PronosticoPanel({ spaceId, canExport }: { spaceId: string; canExport: boolean }) {
   const { operaciones } = useTwin();
   const { pending, run } = useRequest();
   const [forecast, setForecast] = useState<Forecast | null | undefined>(undefined);
@@ -41,10 +42,12 @@ export function PronosticoPanel({ spaceId }: { spaceId: string }) {
           <button type="button" disabled={pending} onClick={() => void load()} className="rounded-lg bg-night px-3 py-1.5 text-sm font-medium text-night-text disabled:opacity-60">
             {pending ? 'Calculando…' : forecast === undefined ? 'Calcular 12 h' : 'Actualizar'}
           </button>
-          <button type="button" disabled={pending} onClick={() => void download()} title="Historial del salón en CSV"
-            className="flex items-center gap-1 rounded-lg border border-rule px-2.5 py-1.5 text-sm hover:bg-white disabled:opacity-60">
-            <Download className="h-4 w-4" />CSV
-          </button>
+          {canExport && (
+            <button type="button" disabled={pending} onClick={() => void download()} title="Historial del salón en CSV (desde la VPN de la administración)"
+              className="flex items-center gap-1 rounded-lg border border-rule px-2.5 py-1.5 text-sm hover:bg-field disabled:opacity-60">
+              <Download className="h-4 w-4" />CSV
+            </button>
+          )}
         </div>
       </div>
       {forecast === null && <p className="mt-2 text-sm text-ink-soft">Este salón todavía no tiene historial suficiente; el pronóstico aparece cuando el gemelo acumule lecturas.</p>}

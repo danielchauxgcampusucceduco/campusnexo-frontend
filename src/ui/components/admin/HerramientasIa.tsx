@@ -1,12 +1,13 @@
 import { Activity, Shuffle } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { useRequest, useTwin } from '../../../application/TwinContext';
+import { useRequest, useSpaceName, useTwin } from '../../../application/TwinContext';
 import type { AssignmentPlan, SensorAnomaly } from '../../../domain/model';
 import type { Curso } from '../../../ports/OperacionesPort';
 import { formatNumber } from '../../../domain/kpis';
+import { LoadFailed } from '../LoadFailed';
 
 const time = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' });
-const inputClass = 'rounded-lg border border-rule bg-white px-2.5 py-1.5 text-sm';
+const inputClass = 'rounded-lg border border-rule bg-field px-2.5 py-1.5 text-sm';
 
 /** Kinds of app.domain.anomalias in the AI service. */
 const KIND_LABEL: Record<string, string> = {
@@ -30,7 +31,8 @@ export function parseCursos(text: string): { cursos: Curso[]; invalid: string[] 
 /** Sensor health from the history (range, stuck value, jump by MAD), computed by the AI service. */
 function SaludDeSensores() {
   const { operaciones } = useTwin();
-  const { pending, run } = useRequest();
+  const spaceName = useSpaceName();
+  const { pending, run, failure } = useRequest();
   const [horas, setHoras] = useState(24);
   const [anomalies, setAnomalies] = useState<SensorAnomaly[] | null>(null);
 
@@ -53,12 +55,13 @@ function SaludDeSensores() {
           {pending ? 'Revisando…' : 'Revisar'}
         </button>
       </div>
+      {failure && !pending && <LoadFailed message={failure} />}
       {anomalies?.length === 0 && <p className="mt-3 text-sm text-st-libre-ink">Sin anomalías en la ventana elegida.</p>}
       {anomalies && anomalies.length > 0 && (
         <ul className="mt-3 max-h-72 divide-y divide-rule overflow-y-auto rounded-xl border border-rule text-sm">
           {anomalies.map((a, i) => (
             <li key={`${a.spaceId}-${a.sensor}-${a.at}-${i}`} className="px-3 py-2">
-              <p><b className="condensed">{a.spaceId}</b> · {a.sensor} · <span className="font-medium text-st-subutilizado-ink">{KIND_LABEL[a.kind] ?? a.kind}</span></p>
+              <p><b title={a.spaceId}>{spaceName(a.spaceId)}</b> · {a.sensor} · <span className="font-medium text-st-subutilizado-ink">{KIND_LABEL[a.kind] ?? a.kind}</span></p>
               <p className="text-xs text-ink-soft">{time.format(Date.parse(a.at))} · valor {formatNumber(a.value, 1)} · {a.detail}</p>
             </li>
           ))}

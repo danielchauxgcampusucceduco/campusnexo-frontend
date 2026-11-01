@@ -158,21 +158,36 @@ export function useTwin(): TwinContextValue {
  * Runs a request from a screen: tracks whether it is pending and reports a failure as a notice, so every
  * form shows loading, error and result the same way.
  */
+/**
+ * Runs a request with a pending flag and a notice. `failure` keeps why the last request failed, so a section that
+ * could not load says so (with the same words as the notice) instead of staying on «Cargando…» or showing an empty
+ * list as if there were no data.
+ */
 export function useRequest() {
   const { notify } = useTwin();
   const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
   const run = useCallback(async <T,>(request: () => Promise<T>, done?: string): Promise<T | undefined> => {
     setPending(true);
     try {
       const result = await request();
+      setFailure(null);
       if (done) notify('info', done);
       return result;
     } catch (error) {
-      notify('error', describeError(error));
+      const message = describeError(error);
+      setFailure(message);
+      notify('error', message);
       return undefined;
     } finally {
       setPending(false);
     }
   }, [notify]);
-  return { pending, run };
+  return { pending, run, failure };
+}
+
+/** The readable name of a space: screens show it, the code stays for tooltips and the administration. */
+export function useSpaceName(): (spaceId: string) => string {
+  const { twin } = useTwin();
+  return useCallback((spaceId: string) => twin(spaceId)?.space.name ?? spaceId, [twin]);
 }

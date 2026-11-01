@@ -2,6 +2,7 @@ import { Armchair, Check, Cpu, Monitor, RefreshCw, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useRequest, useTwin } from '../../../application/TwinContext';
 import type { EmparejamientoCpu, Puesto, PuestoPropuesto, RevisionDePuestos } from '../../../domain/model';
+import { LoadFailed } from '../LoadFailed';
 import { useStage } from '../../StageContext';
 import { ACTIVO_LABEL } from '../../theme';
 
@@ -34,7 +35,7 @@ function SeatCell({ seat, discarded, onToggle, adds }: { seat: PuestoPropuesto; 
   return (
     <button type="button" onClick={onToggle} disabled={!adds} aria-pressed={adds && !discarded}
       title={`${label}: ${[seat.monitor && 'monitor', seat.silla && 'silla', seat.mesa && 'mesa', seat.cpu && `CPU ${seat.cpu}`].filter(Boolean).join(', ') || 'nada'}${adds ? (discarded ? ' · descartado' : ' · se registrará') : ' · ya registrado'}`}
-      className={`flex flex-col items-center gap-0.5 rounded-lg border p-1.5 text-xs transition-colors ${discarded ? 'border-dashed border-rule opacity-50' : incomplete ? 'border-st-subutilizado bg-[color-mix(in_oklab,var(--color-st-subutilizado)_14%,transparent)]' : adds ? 'border-signal bg-white' : 'border-rule bg-paper'}`}>
+      className={`flex flex-col items-center gap-0.5 rounded-lg border p-1.5 text-xs transition-colors ${discarded ? 'border-dashed border-rule opacity-50' : incomplete ? 'border-st-subutilizado bg-[color-mix(in_oklab,var(--color-st-subutilizado)_14%,transparent)]' : adds ? 'border-signal bg-field' : 'border-rule bg-paper'}`}>
       <span className="font-semibold">{label}</span>
       <span className="flex gap-0.5 text-ink-soft">
         <Monitor className={`h-3.5 w-3.5 ${seat.monitor ? 'text-ink' : 'opacity-25'}`} />
@@ -54,11 +55,11 @@ function SeatCell({ seat, discarded, onToggle, adds }: { seat: PuestoPropuesto; 
 export function Puestos() {
   const { operaciones, snapshot, notify } = useTwin();
   const { selectedSpace, selectSpace } = useStage();
-  const { pending, run } = useRequest();
+  const { pending, run, failure } = useRequest();
   const rooms = snapshot.twins.filter((t) => t.space.seatRows !== null).map((t) => t.space);
   const spaceId = rooms.some((r) => r.spaceId === selectedSpace) ? selectedSpace : rooms[0]?.spaceId ?? '';
   const [revision, setRevision] = useState<RevisionDePuestos | null | undefined>(undefined);
-  const [puestos, setPuestos] = useState<Puesto[]>([]);
+  const [puestos, setPuestos] = useState<Puesto[] | null>(null);
   const [discarded, setDiscarded] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
@@ -68,11 +69,12 @@ export function Puestos() {
       run(() => operaciones.puestos(spaceId)),
     ]);
     if (nextRevision !== undefined) setRevision(nextRevision);
-    if (nextPuestos) setPuestos(nextPuestos);
+    setPuestos(nextPuestos ?? null);
   }, [operaciones, spaceId, run]);
 
   useEffect(() => {
     setRevision(undefined);
+    setPuestos(null);
     setDiscarded(new Set());
     void load();
   }, [load]);
@@ -109,13 +111,15 @@ export function Puestos() {
             {rooms.map((r) => <option key={r.spaceId} value={r.spaceId}>{r.spaceId} · {r.name}</option>)}
           </select>
           <button type="button" onClick={() => void load()} disabled={pending} aria-label="Actualizar"
-            className="grid h-9 w-9 place-items-center rounded-lg border border-rule bg-sheet hover:bg-white disabled:opacity-50"><RefreshCw className="h-4 w-4" /></button>
+            className="grid h-9 w-9 place-items-center rounded-lg border border-rule bg-sheet hover:bg-field disabled:opacity-50"><RefreshCw className="h-4 w-4" /></button>
         </div>
       </div>
 
       <section aria-labelledby="propuesta-title" className="rounded-2xl border border-rule bg-sheet p-4">
         <h3 id="propuesta-title" className="font-semibold">Propuesta de la cámara</h3>
-        {revision === undefined && <p className="mt-2 text-sm text-ink-soft">Cargando…</p>}
+        {revision === undefined && (failure && !pending
+          ? <LoadFailed message={failure} onRetry={() => void load()} />
+          : <p className="mt-2 text-sm text-ink-soft">Cargando…</p>)}
         {revision === null && (
           <p className="mt-2 text-sm text-ink-soft">
             La cámara aún no ha propuesto puestos para {spaceId}. Con el salón vacío, el borde corre <code className="rounded bg-paper px-1">yolo_edge_publisher.py --descubrir</code> y la propuesta aparece aquí.
@@ -140,7 +144,7 @@ export function Puestos() {
             {revision.emparejamiento && <Pairing pairing={revision.emparejamiento} />}
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={pending || revision.cpusSinPuesto.length === 0} onClick={() => void pair()}
-                className="rounded-lg border border-rule px-3 py-1.5 text-sm font-medium hover:bg-white disabled:opacity-50">Emparejar CPU</button>
+                className="rounded-lg border border-rule px-3 py-1.5 text-sm font-medium hover:bg-field disabled:opacity-50">Emparejar CPU</button>
               <button type="button" disabled={pending || toAdd === 0} onClick={() => void confirm()}
                 className="flex items-center gap-1.5 rounded-lg bg-night px-3 py-1.5 text-sm font-medium text-night-text disabled:opacity-50">
                 <Check className="h-4 w-4" />Confirmar {toAdd} {toAdd === 1 ? 'puesto' : 'puestos'}
@@ -151,8 +155,10 @@ export function Puestos() {
       </section>
 
       <section aria-labelledby="registrados-title">
-        <h3 id="registrados-title" className="font-semibold">Registrados ({puestos.length})</h3>
-        {puestos.length === 0
+        <h3 id="registrados-title" className="font-semibold">Registrados{puestos ? ` (${puestos.length})` : ''}</h3>
+        {puestos === null
+          ? (failure && !pending ? <LoadFailed message={failure} onRetry={() => void load()} /> : <p className="mt-2 text-sm text-ink-soft">Cargando…</p>)
+          : puestos.length === 0
           ? <p className="mt-2 text-sm text-ink-soft">Ningún puesto registrado en {spaceId}.</p>
           : (
             <div className="mt-2 overflow-x-auto rounded-2xl border border-rule bg-sheet">

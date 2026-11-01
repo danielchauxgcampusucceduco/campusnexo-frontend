@@ -6,7 +6,7 @@ import type { CampusSpace, MedidasEspacio } from '../../../domain/model';
 import { useStage } from '../../StageContext';
 import { SPACE_TYPE_LABEL } from '../../theme';
 
-const inputClass = 'rounded-lg border border-rule bg-white px-2.5 py-1.5 text-sm';
+const inputClass = 'rounded-lg border border-rule bg-field px-2.5 py-1.5 text-sm';
 
 const medidasDe = (space: CampusSpace): MedidasEspacio => ({
   capacity: space.capacity, areaSqm: space.areaSqm, seatRows: space.seatRows, seatColumns: space.seatColumns,
