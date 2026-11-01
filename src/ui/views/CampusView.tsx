@@ -24,7 +24,8 @@ export function CampusView() {
   const { snapshot, twin } = useTwin();
   const { selectedSpace, selectSpace } = useStage();
   const twins = useMemo(() => new Map(snapshot.twins.map((t) => [t.space.spaceId, t])), [snapshot.twins]);
-  const [floor, setFloor] = useState(() => planRoom(selectedSpace)?.floor ?? 4);
+  // Opens on the selected room's floor or, when it is not on the plan, on the floor with the most people.
+  const [floor, setFloor] = useState(() => planRoom(selectedSpace)?.floor ?? busiestFloor(snapshot.twins));
   const [block, setBlock] = useState<'A' | 'B' | null>(null);
 
   const plan = PLAN_FLOORS.find((f) => f.floor === floor) ?? PLAN_FLOORS[0]!;
@@ -85,6 +86,7 @@ export function CampusView() {
               </li>
             ))}
             <li className="flex items-center gap-1.5 text-ink-soft"><span className="h-3 w-3 rounded-full bg-[var(--color-lamp)] shadow-[0_0_8px_var(--color-lamp)]" />Luces encendidas</li>
+            <li className="flex items-center gap-1.5 text-ink-soft"><span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(-45deg,#3a4a52_0_2px,#9fb0b8_2px_3px)]" />Sin sensor</li>
           </ul>
         </section>
         <aside aria-label="Detalle del salón" className="order-3 min-w-0 xl:col-span-2 2xl:col-span-1">
@@ -95,9 +97,21 @@ export function CampusView() {
   );
 }
 
+/** The plan floor where the twins count the most people now; the ground floor when nobody is in. */
+function busiestFloor(twins: readonly TwinSpace[]): number {
+  const people = new Map<number, number>();
+  for (const t of twins) {
+    const floor = planRoom(t.space.spaceId)?.floor;
+    if (floor !== undefined) people.set(floor, (people.get(floor) ?? 0) + t.state.occupancy);
+  }
+  let best = PLAN_FLOORS[0]?.floor ?? 0;
+  for (const [floor, count] of people) if (count > (people.get(best) ?? 0)) best = floor;
+  return best;
+}
+
 function Kpi({ icon, label, value, note, warn }: { icon: ReactNode; label: string; value: ReactNode; note: string; warn?: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 transition-colors duration-500 ${warn ? 'border-[#e8c46a] bg-[#fff7e0]' : 'border-rule bg-sheet'}`}>
+    <div className={`rounded-2xl border p-4 transition-colors duration-500 ${warn ? 'border-[#e8c46a] bg-warn-bg' : 'border-rule bg-sheet'}`}>
       <dt className="flex items-center gap-2 text-sm text-ink-soft">{icon}{label}</dt>
       <dd className="lettering mt-1 text-3xl font-semibold">{value}</dd>
       <dd className="text-sm text-ink-soft">{note}</dd>
@@ -119,7 +133,7 @@ function PilotRooms({ twins, selected, onSelect }: { twins: TwinSpace[]; selecte
           return (
             <li key={space.spaceId}>
               <button type="button" aria-pressed={selected === space.spaceId} onClick={() => onSelect(space.spaceId)}
-                className={`w-full rounded-2xl border p-3 text-left transition-colors ${selected === space.spaceId ? 'border-signal bg-white' : 'border-rule bg-sheet hover:bg-white'}`}>
+                className={`w-full rounded-2xl border p-3 text-left transition-colors ${selected === space.spaceId ? 'border-signal bg-field' : 'border-rule bg-sheet hover:bg-field'}`}>
                 <span className="flex items-center justify-between gap-2">
                   <span className="lettering font-semibold">{space.spaceId}</span>
                   {state.emulated && <span className="flex items-center gap-1 rounded-full bg-ucc-lima px-2 py-0.5 text-xs font-semibold text-ucc-marino"><FlaskConical className="h-3 w-3" />Emulado</span>}

@@ -20,7 +20,23 @@ interface Props {
  */
 export function CampusPlan({ floor, twins, selected, onSelect, block }: Props) {
   const shutdowns = useShutdownFlashes(floor, twins);
+  const box = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0);
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  // Pixels per metre of the drawn plan: the labels are HTML at a fixed 12 px, shown where they fit.
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const measure = () => setScale(element.clientWidth / floor.width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [floor.width]);
+
   return (
+    <div ref={box} className="relative h-full w-full">
     <svg viewBox={`0 0 ${floor.width} ${floor.height}`} className="campus-plan h-full w-full" role="group" aria-label={`Plano del ${floor.name.toLowerCase()}`}>
       <defs>
         <radialGradient id="lamp-glow">
@@ -31,13 +47,53 @@ export function CampusPlan({ floor, twins, selected, onSelect, block }: Props) {
         <pattern id="plan-hatch" width="0.8" height="0.8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="0.8" stroke="#8d9296" strokeWidth="0.3" />
         </pattern>
+        {/* A room without any sensor: light grey stripes, never the colour of «Libre». */}
+        <pattern id="plan-nosensor" width="1.2" height="1.2" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+          <rect width="1.2" height="1.2" fill="#3a4a52" />
+          <line x1="0" y1="0" x2="0" y2="1.2" stroke="#9fb0b8" strokeWidth="0.25" />
+        </pattern>
       </defs>
       <path d={floor.walls} fill="none" stroke="#5d7f8c" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeLinecap="round" opacity="0.75" />
       {floor.rooms.map((room) => (
         <RoomShape key={room.spaceId} room={room} twin={twins.get(room.spaceId)} dimmed={block !== null && room.block !== block}
-          selected={selected === room.spaceId} flash={shutdowns.has(room.spaceId)} onSelect={onSelect} />
+          selected={selected === room.spaceId} flash={shutdowns.has(room.spaceId)} onSelect={onSelect} onHover={setHovered} />
       ))}
     </svg>
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        {scale > 0 && floor.rooms.map((room) => (
+          <RoomLabel key={room.spaceId} room={room} floor={floor} twin={twins.get(room.spaceId)} scale={scale}
+            forced={hovered === room.spaceId || selected === room.spaceId} dimmed={block !== null && room.block !== block} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** A room that has never had a device reporting has no sensor: it is not free, it is unknown. */
+export const withoutSensor = (twin: TwinSpace | undefined) => twin?.state.sensorsReporting === false;
+
+/**
+ * The room's name and occupancy at a fixed, legible size (12 px), shown only where it fits; a room too small shows it
+ * on hover, on focus or when selected. Rooms without a sensor say so instead of a percentage.
+ */
+function RoomLabel({ room, floor, twin, scale, forced, dimmed }: {
+  room: PlanRoom; floor: PlanFloor; twin: TwinSpace | undefined; scale: number; forced: boolean; dimmed: boolean;
+}) {
+  const widthPx = room.rect.w * scale;
+  const heightPx = room.rect.h * scale;
+  const fits = widthPx >= 46 && heightPx >= 30;
+  if (!fits && !forced) return null;
+  const share = Math.min(1, (twin?.state.occupancy ?? 0) / Math.max(1, room.capacity));
+  const title = room.spaceId.length <= 6 ? room.spaceId : room.name;
+  return (
+    <div className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center leading-tight ${dimmed ? 'opacity-30' : ''}`}
+      style={{ left: `${(room.rect.cx / floor.width) * 100}%`, top: `${(room.rect.cy / floor.height) * 100}%`, maxWidth: forced ? 180 : Math.max(46, widthPx - 4) }}>
+      <span className={`max-w-full truncate rounded px-1 text-[12px] font-bold text-white ${forced && !fits ? 'bg-[#0b171d]/90' : ''}`}
+        style={{ textShadow: '0 0 3px #0b171d, 0 0 3px #0b171d' }}>{title}</span>
+      <span className="text-[11px] font-semibold" style={{ color: share > 0 ? '#ffffff' : '#c2d4d9', textShadow: '0 0 3px #0b171d' }}>
+        {withoutSensor(twin) ? 'Sin sensor' : `${Math.round(share * 100)} %`}
+      </span>
+    </div>
   );
 }
 
@@ -61,9 +117,11 @@ function useShutdownFlashes(floor: PlanFloor, twins: Map<string, TwinSpace>): Se
   return active;
 }
 
-function RoomShape({ room, twin, dimmed, selected, flash, onSelect }: {
+function RoomShape({ room, twin, dimmed, selected, flash, onSelect, onHover }: {
   room: PlanRoom; twin: TwinSpace | undefined; dimmed: boolean; selected: boolean; flash: boolean; onSelect: (spaceId: string) => void;
+  onHover: (spaceId: string | null) => void;
 }) {
+  const noSensor = withoutSensor(twin);
   const state = twin?.state;
   const condition = state?.condition ?? 'LIBRE';
   const meta = CONDITION_META[condition];
@@ -88,8 +146,12 @@ function RoomShape({ room, twin, dimmed, selected, flash, onSelect }: {
       role="button"
       tabIndex={0}
       aria-pressed={selected}
-      aria-label={`${room.name} (${room.spaceId}): ${meta.label}, ${occupancy} de ${room.capacity} personas${state?.lightsOn ? ', luces encendidas' : ''}${computers > 0 ? `, ${computers} equipos encendidos` : ''}`}
+      aria-label={noSensor ? `${room.name}, sin sensor` : `${room.name}, ${meta.label.toLowerCase()}, ${occupancy} de ${room.capacity}${state?.lightsOn ? ', luces encendidas' : ''}${computers > 0 ? `, ${computers} equipos encendidos` : ''}`}
       onClick={() => onSelect(room.spaceId)}
+      onMouseEnter={() => onHover(room.spaceId)}
+      onMouseLeave={() => onHover(null)}
+      onFocus={() => onHover(room.spaceId)}
+      onBlur={() => onHover(null)}
       onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(room.spaceId); } }}
       className={`plan-room group cursor-pointer outline-none ${dimmed ? 'opacity-30' : ''}`}
       style={{ transition: 'opacity 400ms ease' }}
@@ -98,9 +160,9 @@ function RoomShape({ room, twin, dimmed, selected, flash, onSelect }: {
       {state?.lightsOn && <circle cx={px} cy={py} r={lampR} fill="url(#lamp-glow)" className="lamp-on" />}
       <polygon
         points={points}
-        fill={condition === 'MANTENIMIENTO' ? 'url(#plan-hatch)' : meta.color}
-        fillOpacity={condition === 'LIBRE' ? 0.16 : condition === 'OCUPADO' ? 0.22 + share * 0.5 : 0.55}
-        stroke={selected ? '#f4fbf9' : meta.color}
+        fill={noSensor ? 'url(#plan-nosensor)' : condition === 'MANTENIMIENTO' ? 'url(#plan-hatch)' : meta.color}
+        fillOpacity={noSensor ? 0.7 : condition === 'LIBRE' ? 0.16 : condition === 'OCUPADO' ? 0.22 + share * 0.5 : 0.55}
+        stroke={selected ? '#f4fbf9' : noSensor ? '#7d8f96' : meta.color}
         strokeWidth={selected ? 3 : 1.4}
         vectorEffect="non-scaling-stroke"
         className={`room-fill ${waste ? 'room-waste' : ''}`}
@@ -129,16 +191,6 @@ function RoomShape({ room, twin, dimmed, selected, flash, onSelect }: {
         {seats.length === 0 && occupancy > 0 && <OfficePeople room={room} count={occupancy} />}
       </g>
       <g pointerEvents="none" className="room-label">
-        <text x={lx} y={ly - label * 0.15} textAnchor="middle" fontSize={label} fontWeight={700} fill="#f4fbf9"
-          paintOrder="stroke" stroke="#0b171d" strokeWidth={label * 0.28} strokeOpacity={0.85}>
-          {room.spaceId.length <= 6 ? room.spaceId : `${Math.round(share * 100)} %`}
-        </text>
-        {room.spaceId.length <= 6 && (
-          <text x={lx} y={ly + label * 0.95} textAnchor="middle" fontSize={label * 0.78} fontWeight={600} fill={share > 0 ? '#ffffff' : '#a9c2c8'}
-            paintOrder="stroke" stroke="#0b171d" strokeWidth={label * 0.24} strokeOpacity={0.85}>
-            {Math.round(share * 100)} %
-          </text>
-        )}
         {computers > 0 && (
           <g transform={`translate(${lx + label * 1.6} ${ly - label * 0.9})`} className="screens-on">
             <rect x={-label * 0.42} y={-label * 0.3} width={label * 0.84} height={label * 0.56} rx={label * 0.08} fill="var(--color-rc-equipos)" />
