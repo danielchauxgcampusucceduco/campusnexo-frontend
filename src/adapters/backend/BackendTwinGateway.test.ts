@@ -9,7 +9,6 @@ type Internal = {
   twins: ReturnType<typeof twinSpace>[];
   onTwin: (message: { body: string }) => void;
   onTrace: (message: { body: string }) => void;
-  refreshSavings: () => Promise<void>;
 };
 
 function gatewayWith(role: GatewayUser['role'] = 'VIEWER') {
@@ -81,14 +80,6 @@ describe('BackendTwinGateway', () => {
     gateway.stop();
   });
 
-  it('degrades the connection when a scheduled savings refresh fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network offline')));
-    const { gateway, internal } = gatewayWith();
-
-    await internal.refreshSavings();
-
-    expect(gateway.getSnapshot().connection).toBe('degraded');
-  });
 
   it('degrades gracefully on malformed pushed messages', () => {
     const { gateway, internal } = gatewayWith();
@@ -159,10 +150,22 @@ describe('BackendTwinGateway', () => {
     internal.twins = [twinSpace()];
     expect(gateway.getSnapshot().latency).toBeNull();
 
-    gateway.accept(twinState({ updatedAt: '2026-10-21T12:00:09Z', lastCameraFrameAt: '2026-10-21T12:00:09.400Z' }));
+    internal.onTwin({ body: JSON.stringify(twinState({ updatedAt: '2026-10-21T12:00:09Z', lastCameraFrameAt: '2026-10-21T12:00:09.400Z' })) });
     // Same frame again (an environment reading): no new sample.
-    gateway.accept(twinState({ updatedAt: '2026-10-21T12:00:09.500Z', lastCameraFrameAt: '2026-10-21T12:00:09.400Z' }));
+    internal.onTwin({ body: JSON.stringify(twinState({ updatedAt: '2026-10-21T12:00:09.500Z', lastCameraFrameAt: '2026-10-21T12:00:09.400Z' })) });
 
     expect(gateway.getSnapshot().latency).toEqual({ p50Ms: 600, p95Ms: 600, samples: 1 });
+  });
+
+  it('does not count the answer to a command as latency', () => {
+    vi.useFakeTimers({ now: Date.parse('2026-10-21T12:05:00.000Z') });
+    const { gateway, internal } = gatewayWith();
+    internal.twins = [twinSpace()];
+
+    // A command answered with a state whose frame was pushed minutes ago.
+    gateway.accept(twinState({ updatedAt: '2026-10-21T12:04:59Z', lastCameraFrameAt: '2026-10-21T12:00:09.400Z' }));
+
+    expect(gateway.getSnapshot().latency).toBeNull();
+    expect(gateway.getSnapshot().twins[0]!.state.updatedAt).toBe('2026-10-21T12:04:59Z');
   });
 });

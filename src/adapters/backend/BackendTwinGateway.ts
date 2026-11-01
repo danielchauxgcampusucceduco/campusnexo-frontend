@@ -1,14 +1,14 @@
-import { Client, type IMessage } from '@stomp/stompjs';
+import type { Client, IMessage } from '@stomp/stompjs';
 import type { ArchitectureTrace, SavingsReport, SpaceTwinState, TwinSpace } from '../../domain/model';
 import { HVAC_CONTROL_STATES, HVAC_MODES, SPACE_STATUSES } from '../../domain/model';
 import type { ConnectionState, GatewayCapabilities, GatewayUser, Latency, TwinGateway, TwinSnapshot } from '../../ports/TwinGateway';
 import { httpClient, type Http } from './http';
+import { savingsFromTwins } from '../../domain/kpis';
 
 export { BackendError } from './http';
 
 const MAX_TRACES = 40;
 const LATENCY_WINDOW = 60;
-const SAVINGS_REFRESH_MS = 10_000;
 const TWIN_NUMERIC_FIELDS = [
   'occupancy', 'occupancyEstimate', 'occupancyStdDev', 'indoorTemperatureC', 'outdoorTemperatureC',
   'co2Ppm', 'humidityPct', 'energySavedKwh', 'illuminanceLux', 'devicesOn', 'devicesTotal', 'hvacSetpointC',
@@ -53,11 +53,11 @@ export class BackendTwinGateway implements TwinGateway {
   private savings: SavingsReport | null = null;
   private traces: ArchitectureTrace[] = [];
   private latencies: number[] = [];
+  private stopped = false;
   private connection: ConnectionState = 'connecting';
   private listeners = new Set<() => void>();
   private snapshot: TwinSnapshot;
   private stomp: Client | null = null;
-  private savingsTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(apiBase: string, private readonly wsUrl: string, private readonly token: string | null, user: GatewayUser) {
     this.user = user;
@@ -78,12 +78,11 @@ export class BackendTwinGateway implements TwinGateway {
     this.traces = traces;
     this.connection = 'degraded';
     this.connectStomp();
-    this.savingsTimer = setInterval(() => void this.refreshSavings(), SAVINGS_REFRESH_MS);
     this.publish();
   }
 
   stop(): void {
-    if (this.savingsTimer) clearInterval(this.savingsTimer);
+    this.stopped = true;
     void this.stomp?.deactivate();
     this.stomp = null;
   }
@@ -100,12 +99,21 @@ export class BackendTwinGateway implements TwinGateway {
   accept(state: SpaceTwinState): void {
     const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
     if (!existing || Date.parse(state.updatedAt) <= Date.parse(existing.state.updatedAt)) return;
-    const frame = state.lastCameraFrameAt ? Date.parse(state.lastCameraFrameAt) : Number.NaN;
-    if (Number.isFinite(frame) && state.lastCameraFrameAt !== existing.state.lastCameraFrameAt) {
-      this.latencies = [...this.latencies.slice(1 - LATENCY_WINDOW), Math.max(0, Date.now() - frame)];
-    }
     this.mergeTwin({ ...existing, state });
     this.publish();
+  }
+
+  /**
+   * QA-2 is measured on the push of a new camera frame only: the answer to a command or a reload can carry a frame
+   * that was pushed long before, and counting it would add the time the browser was not listening.
+   */
+  private sampleLatency(state: SpaceTwinState): void {
+    const existing = this.twins.find((t) => t.space.spaceId === state.spaceId);
+    const frame = state.lastCameraFrameAt ? Date.parse(state.lastCameraFrameAt) : Number.NaN;
+    if (existing && Number.isFinite(frame) && state.lastCameraFrameAt !== existing.state.lastCameraFrameAt
+        && Date.parse(state.updatedAt) > Date.parse(existing.state.updatedAt)) {
+      this.latencies = [...this.latencies.slice(1 - LATENCY_WINDOW), Math.max(0, Date.now() - frame)];
+    }
   }
 
   async refresh(spaceId: string): Promise<void> {
@@ -121,8 +129,16 @@ export class BackendTwinGateway implements TwinGateway {
     this.publish();
   }
 
+  /** The STOMP client loads after sign-in (P1): the sign-in screen does not download the live feed. */
   private connectStomp(): void {
-    this.stomp = new Client({
+    void import('@stomp/stompjs').then(({ Client: StompClient }) => {
+      if (this.stopped) return;
+      this.openStomp(StompClient);
+    });
+  }
+
+  private openStomp(StompClient: typeof Client): void {
+    this.stomp = new StompClient({
       brokerURL: this.wsUrl,
       connectHeaders: this.token ? { Authorization: `Bearer ${this.token}` } : {},
       reconnectDelay: 3_000,
@@ -163,6 +179,7 @@ export class BackendTwinGateway implements TwinGateway {
       console.warn(`Evento del gemelo descartado (${String(state?.spaceId)}): campo ${problem} fuera de contrato`);
       return;
     }
+    this.sampleLatency(state);
     this.accept(state);
   }
 
@@ -183,18 +200,6 @@ export class BackendTwinGateway implements TwinGateway {
     this.twins = this.twins.map((t) => (t.space.spaceId === twin.space.spaceId ? twin : t));
   }
 
-  private async refreshSavings(): Promise<void> {
-    try {
-      this.savings = await this.http<SavingsReport>('/twin/savings');
-      // A failed refresh degrades the feed; the next one that works brings it back while the socket is up.
-      if (this.connection === 'degraded' && this.stomp?.connected) this.connection = 'live';
-      this.publish();
-    } catch {
-      if (this.connection !== 'unauthorized') this.connection = 'degraded';
-      this.publish();
-    }
-  }
-
   private latency(): Latency | null {
     if (this.latencies.length === 0) return null;
     const sorted = [...this.latencies].sort((a, b) => a - b);
@@ -209,7 +214,8 @@ export class BackendTwinGateway implements TwinGateway {
   private build(): TwinSnapshot {
     return {
       twins: this.twins,
-      savings: this.savings,
+      // Loaded once at start for its emission factor; from then on it follows the pushed twin states (P2).
+      savings: this.savings ? savingsFromTwins(this.twins, this.savings.emissionFactorKgCo2PerKwh, Date.now()) : null,
       traces: this.traces,
       now: Date.now(),
       connection: this.connection,
