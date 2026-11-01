@@ -1,10 +1,12 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TwinProvider } from './application/TwinContext';
 import './styles.css';
-import { App } from './ui/App';
 import { LoginScreen, UnavailableScreen } from './ui/components/AccessScreens';
 import { BootScreen } from './ui/components/BootScreen';
+
+// The dashboard loads after sign-in (P1): the sign-in screen downloads only what it shows.
+const App = lazy(() => import('./ui/App').then((module) => ({ default: module.App })));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,7 +15,9 @@ createRoot(document.getElementById('root')!).render(
       login: (props) => <LoginScreen {...props} />,
       unavailable: (props) => <UnavailableScreen {...props} />,
     }}>
-      <App />
+      <Suspense fallback={<BootScreen />}>
+        <App />
+      </Suspense>
     </TwinProvider>
   </StrictMode>,
 );

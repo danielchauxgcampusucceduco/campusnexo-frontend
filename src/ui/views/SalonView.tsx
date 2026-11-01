@@ -1,14 +1,13 @@
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTwin } from '../../application/TwinContext';
-import { PLAN_FLOORS, planRoom } from '../../campus/plan';
 import { ArduinoPanel } from '../components/ArduinoPanel';
 import { KalmanPanel } from '../components/KalmanPanel';
 import { OperacionesPanel } from '../components/OperacionesPanel';
 import { PronosticoPanel } from '../components/PronosticoPanel';
 import { RoomFloor } from '../components/RoomFloor';
 import { ESCENARIO_META } from '../scenarioPlaybook';
-import { useStage } from '../StageContext';
+import { replaceRoute, useRouteParam, useStage } from '../StageContext';
 import { CONDITION_META, MEASUREMENT_META } from '../theme';
 
 /**
@@ -19,11 +18,40 @@ export function SalonView() {
   const { gateway, snapshot, twin } = useTwin();
   const { selectedSpace, selectSpace } = useStage();
   const [details, setDetails] = useState(false);
+  // #/salon/310-A opens that room; the selected room is written back to the address, so the link can be shared.
+  const routed = useRouteParam('salon');
+  const missing = routed !== null && !twin(routed) ? routed : null;
+  useEffect(() => {
+    if (routed && twin(routed)) selectSpace(routed);
+  }, [routed, twin, selectSpace]);
   const current = twin(selectedSpace) ?? snapshot.twins[0];
+  useEffect(() => {
+    if (current && !missing) replaceRoute('salon', current.space.spaceId);
+  }, [current, missing]);
+  // Rooms by block and floor, each group in name order (U7: 118 options must be findable).
+  const groups = useMemo(() => {
+    const byGroup = new Map<string, { label: string; order: string; rooms: typeof snapshot.twins }>();
+    for (const t of snapshot.twins) {
+      const key = `${t.space.buildingName}·${t.space.floor}`;
+      const group = byGroup.get(key) ?? { label: `${t.space.buildingName} · piso ${t.space.floor}`, order: `${t.space.buildingName}-${String(t.space.floor).padStart(2, '0')}`, rooms: [] };
+      group.rooms = [...group.rooms, t];
+      byGroup.set(key, group);
+    }
+    return [...byGroup.values()].sort((a, b) => a.order.localeCompare(b.order))
+      .map((g) => ({ ...g, rooms: [...g.rooms].sort((a, b) => a.space.name.localeCompare(b.space.name, 'es', { numeric: true })) }));
+  }, [snapshot.twins]);
+  if (missing) {
+    return (
+      <section aria-labelledby="salon-title" className="max-w-[60ch]">
+        <h1 id="salon-title" tabIndex={-1} className="lettering text-2xl font-semibold">Salón no encontrado</h1>
+        <p className="mt-2 text-sm text-ink-soft">No encontramos el salón <code className="rounded bg-sheet px-1">{missing}</code> en el catálogo del campus.</p>
+        <a href={`#/salon/${encodeURIComponent(selectedSpace)}`} className="mt-4 inline-block rounded-lg bg-night px-3 py-2 text-sm font-medium text-night-text">Ver otro salón</a>
+      </section>
+    );
+  }
   if (!current) return null;
   const { state, space } = current;
   const kalman = state.kalman;
-  const pilots = snapshot.twins.filter((t) => !planRoom(t.space.spaceId));
 
   return (
     <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_440px]">
@@ -38,14 +66,9 @@ export function SalonView() {
           <label className="text-sm">
             <span className="mr-2 text-ink-soft">Salón</span>
             <select value={space.spaceId} onChange={(event) => selectSpace(event.target.value)} className="max-w-[18rem] rounded-lg border border-rule bg-sheet px-2.5 py-1.5">
-              {pilots.length > 0 && (
-                <optgroup label="Salones piloto">
-                  {pilots.map((t) => <option key={t.space.spaceId} value={t.space.spaceId}>{t.space.name} ({t.space.spaceId})</option>)}
-                </optgroup>
-              )}
-              {PLAN_FLOORS.map((floor) => (
-                <optgroup key={floor.floor} label={floor.name}>
-                  {floor.rooms.map((room) => <option key={room.spaceId} value={room.spaceId}>{room.name}{room.name.includes(room.spaceId) ? '' : ` (${room.spaceId})`}</option>)}
+              {groups.map((group) => (
+                <optgroup key={group.order} label={group.label}>
+                  {group.rooms.map(({ space: room }) => <option key={room.spaceId} value={room.spaceId}>{room.name}{room.name.includes(room.spaceId) ? '' : ` (${room.spaceId})`}</option>)}
                 </optgroup>
               ))}
             </select>
@@ -79,7 +102,7 @@ export function SalonView() {
         </div>
 
         {gateway.capabilities.operations && <OperacionesPanel twin={current} />}
-        {gateway.capabilities.administration && <PronosticoPanel spaceId={space.spaceId} />}
+        <PronosticoPanel spaceId={space.spaceId} canExport={gateway.capabilities.administration} />
 
         <ArduinoPanel twin={current} />
 
