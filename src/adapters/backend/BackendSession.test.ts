@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BackendUnavailableError, fetchSession, InvalidCredentialsError, login, logout, storedToken } from './BackendSession';
+import { BackendUnavailableError, fetchSession, InvalidCredentialsError, login, logout, storedToken, storeToken } from './BackendSession';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -45,7 +45,7 @@ describe('fetchSession', () => {
 
   it('does not store a token from a malformed login response', async () => {
     const storage = { setItem: vi.fn(), removeItem: vi.fn(), getItem: vi.fn() };
-    vi.stubGlobal('sessionStorage', storage);
+    vi.stubGlobal('localStorage', storage);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ token: '', username: 'daniel', role: 'ADMIN' }), { status: 200 }),
     ));
@@ -79,7 +79,7 @@ describe('fetchSession', () => {
   });
 
   it('returns no stored token when browser storage is unavailable', () => {
-    vi.stubGlobal('sessionStorage', {
+    vi.stubGlobal('localStorage', {
       getItem: () => { throw new Error('storage disabled'); },
       removeItem: () => { throw new Error('storage disabled'); },
       setItem: () => { throw new Error('storage disabled'); },
@@ -87,5 +87,33 @@ describe('fetchSession', () => {
 
     expect(storedToken()).toBeNull();
     expect(() => logout()).not.toThrow();
+  });
+
+  it('keeps the session for other tabs until it expires', () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    const now = Date.parse('2026-11-01T12:00:00Z');
+
+    storeToken('abc', '2026-11-01T20:00:00Z', now);
+
+    expect(storedToken(now)).toBe('abc');
+    expect(storedToken(Date.parse('2026-11-01T20:00:01Z'))).toBeNull();
+    expect(values.size).toBe(0);
+  });
+
+  it('drops a saved entry it cannot read', () => {
+    const values = new Map<string, string>([['campusnexo.session', 'token-from-an-old-version']]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+
+    expect(storedToken()).toBeNull();
+    expect(values.size).toBe(0);
   });
 });

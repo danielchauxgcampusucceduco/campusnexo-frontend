@@ -1,6 +1,7 @@
 /**
- * Sign-in against the Java backend. The token lives in sessionStorage (cleared when the tab closes), never
- * in the bundle: the dashboard holds no shared keys, only the session of the person who signed in.
+ * Sign-in against the Java backend. The token lives in localStorage with its expiry, so a link opened in another
+ * tab keeps the session; an expired one is dropped when it is read. It is never in the bundle: the dashboard holds no
+ * shared keys, only the session of the person who signed in.
  */
 export type Role = 'VIEWER' | 'OPERATOR' | 'ADMIN' | 'SENSOR';
 
@@ -16,6 +17,8 @@ export interface Credentials {
   token: string | null;
   username: string;
   role: Role;
+  /** When the backend stops accepting the token (ISO-8601), or null when it did not say. */
+  expiresAt: string | null;
 }
 
 export class BackendUnavailableError extends Error {}
@@ -23,6 +26,8 @@ export class LoginRequiredError extends Error {}
 export class InvalidCredentialsError extends Error {}
 
 const STORAGE_KEY = 'campusnexo.session';
+/** When the login answer has no expiry: the backend's default token lifetime (APP_TOKEN_TTL). */
+const DEFAULT_TTL_MS = 8 * 60 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 10_000;
 const ROLES: readonly Role[] = ['VIEWER', 'OPERATOR', 'ADMIN', 'SENSOR'];
 
@@ -53,25 +58,45 @@ function parseCredentials(value: unknown): Credentials {
       || !ROLES.includes(credentials.role as Role)) {
     throw new BackendUnavailableError('El servidor devolvió credenciales inválidas');
   }
+  const expiresAt = typeof credentials.expiresAt === 'string' && Number.isFinite(Date.parse(credentials.expiresAt))
+    ? credentials.expiresAt : null;
   return {
     token: credentials.token,
     username: credentials.username,
     role: credentials.role as Role,
+    expiresAt,
   };
 }
 
-export function storedToken(): string | null {
+/** The saved token if it has not expired; an expired or unreadable entry is removed. */
+export function storedToken(now = Date.now()): string | null {
   try {
-    return sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as { token?: unknown; expiresAt?: unknown };
+    if (typeof saved.token === 'string' && saved.token && typeof saved.expiresAt === 'number' && saved.expiresAt > now) {
+      return saved.token;
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
   } catch {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Storage blocked.
+    }
     return null;
   }
 }
 
-export function storeToken(token: string | null): void {
+export function storeToken(token: string | null, expiresAt: string | null = null, now = Date.now()): void {
   try {
-    if (token) sessionStorage.setItem(STORAGE_KEY, token);
-    else sessionStorage.removeItem(STORAGE_KEY);
+    if (token) {
+      const until = expiresAt ? Date.parse(expiresAt) : now + DEFAULT_TTL_MS;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, expiresAt: until }));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
   } catch {
     // Storage blocked: the session lasts until the page is reloaded.
   }
@@ -110,7 +135,7 @@ export async function login(apiBase: string, username: string, password: string,
     if (response.status === 429) throw new InvalidCredentialsError('Demasiados intentos: espera un minuto.');
     if (!response.ok) throw new BackendUnavailableError(`El servidor respondió HTTP ${response.status}`);
     const credentials = parseCredentials(await response.json());
-    storeToken(credentials.token);
+    storeToken(credentials.token, credentials.expiresAt);
     return credentials;
   } catch (error) {
     if (error instanceof InvalidCredentialsError || error instanceof BackendUnavailableError) throw error;

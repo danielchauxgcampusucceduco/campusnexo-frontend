@@ -11,7 +11,9 @@ describe('access screens', () => {
     expect(markup.toLowerCase()).toContain('autocomplete="username"');
     expect(markup.toLowerCase()).toContain('autocomplete="current-password"');
     expect(markup).toContain('required=""');
-    expect(markup).toContain('VPN');
+    // The VPN is mentioned only where an action needs it (U3), not on the sign-in screen.
+    expect(markup).not.toContain('VPN');
+    expect(markup).toContain('Mostrar la contraseña');
   });
 
   it('makes the outage explicit, offers a retry and never invents data', () => {
