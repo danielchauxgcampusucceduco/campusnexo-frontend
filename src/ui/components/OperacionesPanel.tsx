@@ -3,12 +3,17 @@ import { useState, type FormEvent } from 'react';
 import { useRequest, useTwin } from '../../application/TwinContext';
 import type { SpaceTwinState, TwinSpace } from '../../domain/model';
 
-const inputClass = 'rounded-lg border border-rule bg-white px-2.5 py-1.5 text-sm';
-const buttonClass = 'flex items-center justify-center gap-1.5 rounded-lg border border-rule bg-paper px-3 py-1.5 text-sm font-medium hover:bg-white disabled:opacity-50';
+const inputClass = 'rounded-lg border border-rule bg-field px-2.5 py-1.5 text-sm';
+const buttonClass = 'flex items-center justify-center gap-1.5 rounded-lg border border-rule bg-paper px-3 py-1.5 text-sm font-medium hover:bg-field disabled:opacity-50';
 
 /** Local time for a datetime-local input, rounded to the next quarter hour. */
 function nextQuarter(now: number): string {
-  const date = new Date(Math.ceil(now / 900_000) * 900_000);
+  return localInput(Math.ceil(now / 900_000) * 900_000);
+}
+
+/** A datetime-local value (local time, minute precision). */
+function localInput(at: number): string {
+  const date = new Date(at);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
@@ -75,7 +80,8 @@ export function OperacionesPanel({ twin }: { twin: TwinSpace }) {
       <form className="mt-4 grid grid-cols-2 gap-2 border-t border-rule pt-3" onSubmit={(event) => void book(event)}>
         <p className="col-span-2 flex items-center gap-1.5 text-sm font-medium"><CalendarPlus className="h-4 w-4 text-ink-soft" />Nueva reserva</p>
         <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-soft sm:col-span-1">Inicio
-          <input type="datetime-local" required value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={inputClass} />
+          {/* No booking in the past; the backend applies the same rule. */}
+          <input type="datetime-local" required min={localInput(snapshot.now)} value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={inputClass} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">Duración
           <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className={inputClass}>
@@ -83,7 +89,7 @@ export function OperacionesPanel({ twin }: { twin: TwinSpace }) {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">Asistentes
-          <input type="number" min={1} max={space.capacity * 2} required value={attendees} onChange={(e) => setAttendees(Number(e.target.value))} className={inputClass} />
+          <input type="number" min={1} max={space.capacity} required value={attendees} onChange={(e) => setAttendees(Number(e.target.value))} className={inputClass} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-ink-soft">Curso o grupo
           <input required maxLength={80} placeholder="IS-701" value={reference} onChange={(e) => setReference(e.target.value)} className={inputClass} />
