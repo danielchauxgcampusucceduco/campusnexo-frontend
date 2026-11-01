@@ -72,6 +72,50 @@
   --color-rc-ambos: #f08a3e;
   --color-rc-ambos-ink: #9a4a10;
   --color-lamp: #ffd98a;
+
+  /* Surfaces that were hard-coded: fields and chips, and the backgrounds of errors and warnings. */
+  --color-field: #ffffff;
+  --color-alert-bg: #fdeeea;
+  --color-warn-bg: #fff7e0;
+}
+
+/*
+ * Dark colour scheme, following the operating system. The surfaces and the text inks change; the fills of the states
+ * stay (they were chosen for the navy viewports) and the text inks take their bright variant, readable on dark.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-paper: #0d1720;
+    --color-sheet: #142230;
+    --color-field: #1b2b3b;
+    --color-ink: #e4edf2;
+    --color-ink-soft: #a6b6c1;
+    --color-rule: #2b3d4e;
+    --color-night: #0b1622;
+    --color-night-line: #24384f;
+    --color-alert-bg: #3a1f1a;
+    --color-warn-bg: #3a3218;
+    --color-st-libre-ink: #9fd14a;
+    --color-st-espera-ink: #b4c2cc;
+    --color-st-optimo-ink: #4fd0e6;
+    --color-st-subutilizado-ink: #dbe34d;
+    --color-st-sobrecupo-ink: #ff8f78;
+    --color-st-noshow-ink: #9fbcd1;
+    --color-st-popup-ink: #7fb2e8;
+    --color-st-mantenimiento-ink: #b3b7bb;
+    --color-hv-frio-ink: #7fb2e8;
+    --color-hv-calor-ink: #f0a65e;
+    --color-hv-ahorro-ink: #9fd14a;
+    --color-hv-aire-ink: #7fd6e4;
+    --color-hv-manual-ink: #7fb2e8;
+    --color-rc-libre-ink: #a9bcc5;
+    --color-rc-ocupado-ink: #4fd0e6;
+    --color-rc-sobrecupo-ink: #ff8f78;
+    --color-rc-luces-ink: #f2c14e;
+    --color-rc-equipos-ink: #d9a3ec;
+    --color-rc-ambos-ink: #f5a96b;
+  }
 }
 
 @layer base {
@@ -146,6 +190,11 @@
 .plan-room:hover .room-fill,
 .plan-room:focus-visible .room-fill {
   stroke: #f4fbf9;
+}
+/* Keyboard focus on a room: a thick light outline (WCAG 2.4.7), not only a lighter border. */
+.plan-room:focus-visible .room-fill {
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 0 2px #f4fbf9);
 }
 /* Belongings without a student: the desk blinks amber while the 15-minute timer runs. */
 .seat-alert {
@@ -222,4 +271,12 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Horizontal scrollers whose continuation is shown otherwise (a fade): no visible bar. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

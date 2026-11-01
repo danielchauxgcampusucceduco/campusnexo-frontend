@@ -39,7 +39,7 @@ function Tile({ icon, label, sensor, value, note, meter, tone, highlight }: {
   icon: ReactNode; label: string; sensor: string; value: string; note?: string | undefined; meter?: number; tone?: string; highlight?: boolean;
 }) {
   return (
-    <div className={`flex flex-col overflow-hidden rounded-xl border p-3 transition-colors duration-500 ${highlight ? 'border-[#e8c46a] bg-[#fff7e0]' : 'border-rule bg-paper'}`}>
+    <div className={`flex flex-col overflow-hidden rounded-xl border p-3 transition-colors duration-500 ${highlight ? 'border-[#e8c46a] bg-warn-bg' : 'border-rule bg-paper'}`}>
       <div className="flex items-center gap-2 text-ink-soft">{icon}<span className="text-xs">{label}</span></div>
       <p className="mt-1 text-lg font-semibold leading-tight">{value}</p>
       {note && <p className="text-xs text-ink-soft">{note}</p>}

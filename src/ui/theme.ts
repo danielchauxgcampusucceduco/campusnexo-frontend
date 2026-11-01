@@ -111,6 +111,7 @@ export const ALERT_LABEL: Record<AlertType, string> = {
   CPU_ENCENDIDA_SIN_USUARIO: 'Computador encendido sin usuario',
   ACTIVO_FALTANTE: 'Falta una silla, mesa o CPU',
   SENSOR_ANOMALO: 'Sensor con lecturas anómalas',
+  FALLO_CAMARA: 'Cámara sin señal',
 };
 
 export const SEVERITY_META: Record<AlertSeverity, { label: string; color: string; ink: string }> = {
