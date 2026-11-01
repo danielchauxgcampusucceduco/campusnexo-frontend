@@ -243,6 +243,8 @@ export interface SpaceTwinState {
   /** The camera data came from the device emulator, not from a real camera. */
   emulated: boolean;
   lastCameraFrameAt: string | null;
+  /** Some device of the room has reported at least once; without it the room has no sensor (not the same as free). */
+  sensorsReporting?: boolean;
   escenarios: EscenarioReconocido[];
 }
 
@@ -300,6 +302,7 @@ export const ALERT_TYPES = [
   'CPU_ENCENDIDA_SIN_USUARIO',
   'ACTIVO_FALTANTE',
   'SENSOR_ANOMALO',
+  'FALLO_CAMARA',
 ] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 export type AlertSeverity = 'INFORMATIVA' | 'ADVERTENCIA' | 'CRITICA';
@@ -425,7 +428,8 @@ export interface Forecast {
 }
 
 /** GET /demo: the compressed academic day of the system demo (backend DemoSimulation). */
-export type UsoDemo = 'CLASE' | 'PRACTICA' | 'RESERVA_SIN_USO' | 'MANTENIMIENTO' | 'LIBRE';
+/** RESERVA_SIN_USO: a class of the timetable that nobody attended. */
+export type UsoDemo = 'CLASE' | 'RESERVA_SIN_USO' | 'LIBRE';
 
 export interface FranjaDemo {
   etiqueta: string;
@@ -435,7 +439,7 @@ export interface FranjaDemo {
 
 export interface DispositivoDemo {
   nombre: string;
-  categoria: 'PROYECCION' | 'COMPUTO' | 'MEDICINA' | 'INGENIERIA';
+  categoria: 'PROYECCION' | 'COMPUTO';
   /** Identical units grouped (the PCs of a room). */
   cantidad: number;
   encendidos: number;
@@ -488,11 +492,21 @@ export interface SalaDemo {
 
 export interface DemoSnapshot {
   generadoEn: string;
+  /** Loops of the simulated week; `diaSemana` names the weekday this one plays (Lunes … Viernes). */
   dia: number;
+  diaSemana: string;
+  programa: string;
   hora: string;
   minutoDelDia: number;
   franjaActual: number;
   minutosSimuladosPorMinuto: number;
   franjas: FranjaDemo[];
   salones: SalaDemo[];
+}
+
+/** POST /admin/personas/importar: rows read, people saved and each rejected row with its reason. */
+export interface ImportacionPersonas {
+  filas: number;
+  guardadas: number;
+  rechazadas: { fila: number; codigo: string; motivo: string }[];
 }

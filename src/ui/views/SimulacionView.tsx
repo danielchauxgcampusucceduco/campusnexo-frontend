@@ -1,30 +1,40 @@
-import { CameraOff, FlaskConical, Lightbulb, Thermometer } from 'lucide-react';
+import { CameraOff, FlaskConical, Lightbulb, LogOut, Thermometer } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useTwin } from '../../application/TwinContext';
 import { BackendError } from '../../adapters/backend/http';
+import { formatNumber } from '../../domain/kpis';
 import type { DemoSnapshot, DispositivoDemo, SalaDemo, SpaceType, UsoDemo } from '../../domain/model';
+import { navigate } from '../StageContext';
 import { SPACE_TYPE_LABEL } from '../theme';
 
 const POLL_MS = 3_000;
-/** Each loop of the simulated day gets another schedule; the weekday only names it. */
-const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 const USO_META: Record<UsoDemo, { label: string; color: string; ink: string }> = {
   CLASE: { label: 'Clase', color: 'var(--color-st-optimo)', ink: 'var(--color-st-optimo-ink)' },
-  PRACTICA: { label: 'Práctica', color: 'var(--color-st-popup)', ink: 'var(--color-st-popup-ink)' },
-  RESERVA_SIN_USO: { label: 'Reservado sin uso', color: 'var(--color-st-noshow)', ink: 'var(--color-st-noshow-ink)' },
-  MANTENIMIENTO: { label: 'Mantenimiento', color: 'var(--color-st-mantenimiento)', ink: 'var(--color-st-mantenimiento-ink)' },
+  RESERVA_SIN_USO: { label: 'Programado, nadie llegó', color: 'var(--color-st-noshow)', ink: 'var(--color-st-noshow-ink)' },
   LIBRE: { label: 'Libre', color: 'var(--color-st-libre)', ink: 'var(--color-st-libre-ink)' },
 };
 
 const FILTROS: { id: 'todos' | SpaceType; label: string }[] = [
   { id: 'todos', label: 'Todos' },
-  { id: 'SALA_COMPUTO', label: 'Salas de cómputo' },
-  { id: 'LABORATORIO', label: 'Laboratorios' },
+  { id: 'SALA_COMPUTO', label: 'Salas de informática' },
   { id: 'AULA', label: 'Salones' },
 ];
 
-const ORDEN_TIPO: Partial<Record<SpaceType, number>> = { SALA_COMPUTO: 0, LABORATORIO: 1, AULA: 2 };
+const ORDEN_TIPO: Partial<Record<SpaceType, number>> = { SALA_COMPUTO: 0, AULA: 1 };
+
+/** The group of a timetable label ("Patrones de Software · 4A" → "4A"), shown in the grid cell. */
+const grupoDe = (curso: string | null) => curso?.split(' · ').at(-1) ?? '';
+
+/** Leaves the simulation for the live campus; with nobody watching, the backend stops feeding the twin. */
+function SalirDeLaSimulacion() {
+  return (
+    <button type="button" onClick={() => navigate('campus')}
+      className="flex items-center gap-1.5 rounded-lg border border-rule bg-sheet px-3 py-1.5 text-sm font-medium hover:bg-field">
+      <LogOut className="h-4 w-4" />Salir de la simulación
+    </button>
+  );
+}
 
 function useDemo() {
   const { operaciones } = useTwin();
@@ -55,7 +65,10 @@ export function SimulacionView() {
   if (!demo) {
     return (
       <section aria-labelledby="sim-title">
-        <h1 id="sim-title" tabIndex={-1} className="lettering text-2xl font-semibold">Simulación del campus</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 id="sim-title" tabIndex={-1} className="lettering text-2xl font-semibold">Simulación del campus</h1>
+          <SalirDeLaSimulacion />
+        </div>
         <p className="mt-2 max-w-[70ch] text-sm text-ink-soft">
           {error?.status === 404
             ? 'Este servidor corre sin la simulación. Se activa con DEMO_SIMULATION=true en el backend.'
@@ -69,7 +82,7 @@ export function SimulacionView() {
   const sala = todos.find((s) => s.spaceId === elegido)
     ?? [...todos].sort((a, b) => b.ahora.hallazgos.length - a.ahora.hallazgos.length)[0]!;
   const libres = todos.filter((s) => s.ahora.uso === 'LIBRE' && s.ahora.personas === 0).length;
-  const enUso = todos.filter((s) => s.ahora.personas > 0 && s.ahora.uso !== 'MANTENIMIENTO').length;
+  const enUso = todos.filter((s) => s.ahora.personas > 0).length;
   const desperdicio = todos.filter((s) => s.ahora.personas === 0 && (s.ahora.luces || s.ahora.dispositivosEncendidos > 0)).length;
   const potencia = todos.reduce((total, s) => total + s.ahora.potenciaKw, 0);
   const conHallazgos = todos.filter((s) => s.ahora.hallazgos.length > 0)
@@ -85,14 +98,15 @@ export function SimulacionView() {
               <span className="flex items-center gap-1 rounded-full bg-ucc-lima px-2 py-0.5 text-xs font-semibold text-ucc-marino"><FlaskConical className="h-3 w-3" />Emulado</span>
             </h1>
             <p className="view-intro mt-1 max-w-[70ch] text-sm text-ink-soft">
-              Un día académico de 7:00 a 22:00 pasa en unos {Math.round(900 / demo.minutosSimuladosPorMinuto)} minutos y se repite con otro horario.
-              Las situaciones están exageradas a propósito: luces y proyectores olvidados, laboratorios con equipos encendidos, clases a oscuras,
-              sobrecupo, cámara caída y reservas sin uso. Cada salón tiene una cámara normal y una infrarroja.
+              Una semana de {demo.programa}: cada día hábil, de 7:00 a 22:00, pasa en unos {formatNumber(900 / demo.minutosSimuladosPorMinuto, 0)} minutos,
+              con las clases reales de cada grupo en sus salones, sus estudiantes y su docente. Alrededor del horario se simula lo que suele
+              pasar: luces, proyectores y equipos olvidados, clases a oscuras y una cámara que se cae. Cada salón tiene una cámara normal y una infrarroja.
             </p>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end gap-2 text-right">
+            <SalirDeLaSimulacion />
             <p className="lettering text-5xl font-semibold tabular-nums">{demo.hora}</p>
-            <p className="text-sm text-ink-soft">{DIAS[demo.dia % DIAS.length]} simulado · {demo.franjas[demo.franjaActual]?.etiqueta}</p>
+            <p className="text-sm text-ink-soft">{demo.diaSemana} · franja {demo.franjas[demo.franjaActual]?.etiqueta}</p>
           </div>
         </div>
 
@@ -100,7 +114,7 @@ export function SimulacionView() {
           <Kpi label="Libres ahora" value={libres} of={todos.length} />
           <Kpi label="Con personas" value={enUso} of={todos.length} />
           <Kpi label="Vacíos con algo encendido" value={desperdicio} of={todos.length} warn />
-          <Kpi label="Potencia total" value={potencia.toFixed(1)} unit="kW" />
+          <Kpi label="Luces y equipos de los salones simulados" value={formatNumber(potencia)} unit="kW" />
         </dl>
       </section>
 
@@ -136,9 +150,9 @@ export function SimulacionView() {
             <span>normal: <b>{sala.ahora.personasCamaraNormal ?? 'sin señal'}</b></span>
             <span>infrarroja: <b>{sala.ahora.personasInfrarroja}</b></span>
             <span className="flex items-center gap-1"><Lightbulb className="h-3.5 w-3.5" />{sala.ahora.luces ? 'luces encendidas' : 'luces apagadas'}</span>
-            <span className="flex items-center gap-1"><Thermometer className="h-3.5 w-3.5" />{sala.ahora.temperaturaC.toFixed(1)} °C</span>
-            <span>CO₂ {Math.round(sala.ahora.co2Ppm)} ppm</span>
-            <span>{sala.ahora.potenciaKw.toFixed(2)} kW</span>
+            <span className="flex items-center gap-1"><Thermometer className="h-3.5 w-3.5" />{formatNumber(sala.ahora.temperaturaC)} °C</span>
+            <span>CO₂ {formatNumber(sala.ahora.co2Ppm, 0)} ppm</span>
+            <span>{formatNumber(sala.ahora.potenciaKw, 2)} kW</span>
           </p>
           {sala.ahora.hallazgos.length > 0 && (
             <ul className="mt-3 flex flex-col gap-1 text-sm">
@@ -191,7 +205,8 @@ function Leyenda() {
       {(Object.keys(USO_META) as UsoDemo[]).map((uso) => (
         <li key={uso} className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ background: USO_META[uso].color }} />{USO_META[uso].label}</li>
       ))}
-      <li className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ background: USO_META.LIBRE.color, boxShadow: 'inset 0 -4px 0 var(--color-rc-luces)' }} />Libre con algo encendido</li>
+      <li className="flex items-center gap-1.5"><span className="flex h-3 w-4 items-center justify-center rounded-sm" style={{ background: USO_META.LIBRE.color, boxShadow: 'inset 0 -4px 0 var(--color-rc-luces)' }}><Lightbulb aria-hidden className="h-2.5 w-2.5" /></span>Libre con algo encendido</li>
+      <li>Cada celda muestra el grupo en clase; ∅: clase programada a la que nadie llegó.</li>
     </ul>
   );
 }
@@ -199,14 +214,14 @@ function Leyenda() {
 function Horario({ demo, salones, elegido, onElegir }: { demo: DemoSnapshot; salones: SalaDemo[]; elegido: string; onElegir: (id: string) => void }) {
   return (
     <div className="mt-3 overflow-x-auto rounded-lg border border-rule">
-      <table className="w-full min-w-[760px] border-collapse text-xs">
-        <caption className="sr-only">Uso de cada salón por franja del día simulado</caption>
+      <table className="w-full min-w-[920px] border-collapse text-xs">
+        <caption className="sr-only">Clases de cada salón por hora del {demo.diaSemana.toLowerCase()} simulado</caption>
         <thead>
           <tr className="bg-sheet">
             <th scope="col" className="sticky left-0 bg-sheet px-2 py-1.5 text-left font-semibold">Salón</th>
             {demo.franjas.map((f, i) => (
               <th key={f.etiqueta} scope="col" className={`px-1 py-1.5 text-center font-medium ${i === demo.franjaActual ? 'text-ink' : 'text-ink-soft'}`}>
-                {f.etiqueta.replace(' almuerzo', '')}{i === demo.franjaActual && <span className="block text-[10px] font-semibold text-signal">ahora</span>}
+                <abbr title={f.etiqueta} className="no-underline">{f.desde / 60}:00</abbr>{i === demo.franjaActual && <span className="block text-[10px] font-semibold text-signal">ahora</span>}
               </th>
             ))}
           </tr>
@@ -226,8 +241,12 @@ function Horario({ demo, salones, elegido, onElegir }: { demo: DemoSnapshot; sal
                 return (
                   <td key={i} className="px-0.5 py-0.5">
                     <button type="button" title={titulo} aria-label={`${s.nombre}, ${demo.franjas[i]!.etiqueta}: ${titulo}`} onClick={() => onElegir(s.spaceId)}
-                      className={`block h-6 w-full rounded-sm ${i === demo.franjaActual ? 'ring-2 ring-night ring-offset-1' : ''}`}
-                      style={{ background: meta.color, opacity: i < demo.franjaActual ? 0.45 : 1, boxShadow: olvido ? 'inset 0 -5px 0 var(--color-rc-luces)' : undefined }} />
+                      className={`flex h-6 w-full items-center justify-center rounded-sm text-[10px] font-semibold text-ucc-marino ${i === demo.franjaActual ? 'ring-2 ring-night ring-offset-1' : ''}`}
+                      style={{ background: meta.color, opacity: i < demo.franjaActual ? 0.45 : 1, boxShadow: olvido ? 'inset 0 -5px 0 var(--color-rc-luces)' : undefined }}>
+                      {/* Text and an icon besides the colour: the grid reads without telling colours apart. */}
+                      {bloque.uso === 'RESERVA_SIN_USO' ? '∅' : grupoDe(bloque.curso)}
+                      {olvido && <Lightbulb aria-hidden className="h-3 w-3" />}
+                    </button>
                   </td>
                 );
               })}
@@ -272,7 +291,7 @@ function Marco({ titulo, detalle, children, oscuro }: { titulo: string; detalle:
     <figure className="overflow-hidden rounded-lg border border-night-line bg-night">
       <div className="relative">
         <svg viewBox="0 0 100 72" className="block w-full" role="img" aria-label={`${titulo}: ${detalle}`}>{children}</svg>
-        <figcaption className={`absolute left-2 top-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${oscuro ? 'bg-black/50 text-white' : 'bg-white/70 text-ucc-marino'}`}>{titulo}</figcaption>
+        <figcaption className={`absolute left-2 top-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${oscuro ? 'bg-black/50 text-white' : 'bg-field/70 text-ucc-marino'}`}>{titulo}</figcaption>
       </div>
       <p className="px-2 py-1 text-xs text-night-text">{detalle}</p>
     </figure>
@@ -394,13 +413,13 @@ function Dispositivos({ dispositivos }: { dispositivos: DispositivoDemo[] }) {
               <td className="py-1.5 pr-2">
                 {d.nombre}
                 {d.cantidad > 1 && <span className="text-ink-soft"> · {d.encendidos}/{d.cantidad} encendidos</span>}
-                {d.siempreEncendido && <span className="ml-1 rounded bg-sheet px-1 text-[11px] text-ink-soft">debe estar encendido</span>}
+                {d.siempreEncendido && <>{' '}<span className="ml-1 rounded bg-sheet px-1 text-[11px] text-ink-soft">de uso continuo</span></>}
               </td>
               <td className="py-1.5 pr-2 text-ink-soft">
                 {d.camaraNormal === null ? (d.pantalla ? 'Sin señal' : 'No distingue') : d.camaraNormal ? 'Pantalla encendida' : 'Pantalla apagada'}
               </td>
               <td className="py-1.5 tabular-nums" style={{ color: TERMICO[d.termico].color }}>
-                {TERMICO[d.termico].label} · {d.temperaturaC.toFixed(1)} °C
+                {TERMICO[d.termico].label} · {formatNumber(d.temperaturaC)} °C
               </td>
             </tr>
           ))}
