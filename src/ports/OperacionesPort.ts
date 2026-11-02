@@ -71,4 +71,6 @@ export interface OperacionesPort {
   historialCsv(spaceId: string): Promise<Blob>;
   /** The system demo; a 404 means the server runs without it (DEMO_SIMULATION). */
   demo(): Promise<DemoSnapshot>;
+  /** Stops the demo and erases every emulated figure (staff); the ids of the rooms it cleared. */
+  salirDeLaDemo(): Promise<string[]>;
 }

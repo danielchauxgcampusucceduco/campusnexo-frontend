@@ -26,13 +26,38 @@ const ORDEN_TIPO: Partial<Record<SpaceType, number>> = { SALA_COMPUTO: 0, AULA: 
 /** The group of a timetable label ("Patrones de Software · 4A" → "4A"), shown in the grid cell. */
 const grupoDe = (curso: string | null) => curso?.split(' · ').at(-1) ?? '';
 
-/** Leaves the simulation for the live campus; with nobody watching, the backend stops feeding the twin. */
+/**
+ * Leaves the simulation for the live campus. For the staff it also stops the demo and erases what it emulated
+ * (telemetry, alerts, savings, history), so no emulated figure stays; a viewer only leaves the screen.
+ */
 function SalirDeLaSimulacion() {
+  const { operaciones, gateway } = useTwin();
+  const [saliendo, setSaliendo] = useState(false);
+  const [fallo, setFallo] = useState<string | null>(null);
+  const salir = async () => {
+    if (gateway.user.role === 'VIEWER') {
+      navigate('campus');
+      return;
+    }
+    setSaliendo(true);
+    setFallo(null);
+    try {
+      await operaciones.salirDeLaDemo();
+      navigate('campus');
+    } catch (failure) {
+      setFallo(failure instanceof Error ? failure.message : String(failure));
+      setSaliendo(false);
+    }
+  };
   return (
-    <button type="button" onClick={() => navigate('campus')}
-      className="flex items-center gap-1.5 rounded-lg border border-rule bg-sheet px-3 py-1.5 text-sm font-medium hover:bg-field">
-      <LogOut className="h-4 w-4" />Salir de la simulación
-    </button>
+    <div className="flex flex-col items-start gap-1">
+      <button type="button" onClick={() => void salir()} disabled={saliendo}
+        title="Detiene la simulación y borra todos los datos emulados"
+        className="flex items-center gap-1.5 rounded-lg border border-rule bg-sheet px-3 py-1.5 text-sm font-medium hover:bg-field disabled:opacity-50">
+        <LogOut className="h-4 w-4" />{saliendo ? 'Borrando los datos emulados…' : 'Salir de la simulación'}
+      </button>
+      {fallo && <p role="alert" className="text-xs text-st-sobrecupo-ink">No se pudieron borrar los datos emulados: {fallo}</p>}
+    </div>
   );
 }
 
