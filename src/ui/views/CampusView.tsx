@@ -86,7 +86,7 @@ export function CampusView() {
               </li>
             ))}
             <li className="flex items-center gap-1.5 text-ink-soft"><span className="h-3 w-3 rounded-full bg-[var(--color-lamp)] shadow-[0_0_8px_var(--color-lamp)]" />Luces encendidas</li>
-            <li className="flex items-center gap-1.5 text-ink-soft"><span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(-45deg,#3a4a52_0_2px,#9fb0b8_2px_3px)]" />Sin sensor</li>
+            <li className="flex items-center gap-1.5 text-ink-soft" title="Ningún dispositivo del salón (cámara o tablero Arduino) ha enviado datos todavía"><span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(-45deg,#3a4a52_0_2px,#9fb0b8_2px_3px)]" />Sin sensor</li>
           </ul>
         </section>
         <aside aria-label="Detalle del salón" className="order-3 min-w-0 xl:col-span-2 2xl:col-span-1">
