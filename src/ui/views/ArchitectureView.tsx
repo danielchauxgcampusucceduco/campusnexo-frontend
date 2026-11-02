@@ -140,7 +140,7 @@ export function ArchitectureView() {
             <li key={t.traceId}>
               <button type="button" onClick={() => { setPinned(t.traceId); setPaused(false); }}
                 aria-current={t.traceId === trace?.traceId ? 'true' : undefined}
-                className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-white ${t.traceId === trace?.traceId ? 'bg-white font-medium' : ''}`}>
+                className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-field ${t.traceId === trace?.traceId ? 'bg-field font-medium' : ''}`}>
                 <span className="tabular-nums text-ink-soft">{time.format(Date.parse(t.startedAt))}</span>
                 <span className="flex-1 truncate">{t.trigger}</span>
                 <span className="condensed text-ink-soft">{t.spaceId}</span>
@@ -157,7 +157,7 @@ export function ArchitectureView() {
 function IconButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
     <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled}
-      className="grid h-9 w-9 place-items-center rounded-lg border border-rule bg-sheet text-ink hover:bg-white disabled:opacity-40">
+      className="grid h-9 w-9 place-items-center rounded-lg border border-rule bg-sheet text-ink hover:bg-field disabled:opacity-40">
       {children}
     </button>
   );
