@@ -119,7 +119,7 @@ export class BackendOperaciones implements OperacionesPort {
   }
 
   async salirDeLaDemo(): Promise<string[]> {
-    const { salonesLimpiados } = await this.http<{ salonesLimpiados: string[] }>('/demo', { method: 'DELETE' });
+    const { salonesLimpiados } = await this.http<{ salonesLimpiados: string[] }>('/demo', { method: 'DELETE', timeoutMs: 60_000 });
     return salonesLimpiados;
   }
 }
