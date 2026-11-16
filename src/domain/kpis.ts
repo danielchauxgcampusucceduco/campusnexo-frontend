@@ -2,15 +2,11 @@ import { HVAC_POWER_FRACTION, type HvacControlState, type SavingsReport, type Tw
 
 /**
  * Constants of EnergyAccountingPolicy. Baseline: a conventional system runs the unit at full power while the room is in
- * scheduled use (a booking under way, or people in it) within campus hours, 07:00–21:00 Bogotá. The backend accumulates
+ * scheduled use (a booking under way, or people in it), at any hour. The backend accumulates
  * the savings; the dashboard only needs them to draw the live power next to the baseline.
  */
 export const ENERGY = {
   ratedKwPerSqm: 0.12,
-  scheduleStartHour: 7,
-  scheduleEndHour: 21,
-  /** Bogotá is UTC−5 all year (no daylight saving). */
-  utcOffsetHours: -5,
   emissionFactorKgCo2PerKwh: 0.126,
 } as const;
 
@@ -24,19 +20,14 @@ export const ratedKw = (areaSqm: number) => {
   return ENERGY.ratedKwPerSqm * areaSqm;
 };
 
-function inSchedule(epochMs: number): boolean {
-  const hour = new Date(epochMs + ENERGY.utcOffsetHours * 3_600_000).getUTCHours();
-  return hour >= ENERGY.scheduleStartHour && hour < ENERGY.scheduleEndHour;
-}
-
 /** What the room's unit draws now: its strategy's share of the rated power (0 kW when it is off). */
 export function hvacPowerKw({ space, state }: Pick<TwinSpace, 'space' | 'state'>): number {
   return space.hvacInstalled ? powerFraction(state.hvacState) * ratedKw(space.areaSqm) : 0;
 }
 
 /** Whether the conventional baseline would run the room's unit now. */
-function inScheduledUse({ state, activeReservation }: Pick<TwinSpace, 'state' | 'activeReservation'>, now: number): boolean {
-  return inSchedule(now) && (activeReservation !== null || state.occupancy > 0);
+function inScheduledUse({ state, activeReservation }: Pick<TwinSpace, 'state' | 'activeReservation'>): boolean {
+  return activeReservation !== null || state.occupancy > 0;
 }
 
 /**
@@ -48,7 +39,7 @@ export function fleetPower(twins: readonly TwinSpace[], now: number): { actualKw
   return twins.filter(({ space }) => space.hvacInstalled).reduce(
     (acc, twin) => ({
       actualKw: acc.actualKw + hvacPowerKw(twin),
-      baselineKw: acc.baselineKw + (inScheduledUse(twin, now) ? ratedKw(twin.space.areaSqm) : 0),
+      baselineKw: acc.baselineKw + (inScheduledUse(twin) ? ratedKw(twin.space.areaSqm) : 0),
     }),
     { actualKw: 0, baselineKw: 0 },
   );

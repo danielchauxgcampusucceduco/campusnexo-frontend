@@ -13,7 +13,8 @@ describe('live power of the climate fleet', () => {
     const inClass = twin('VENTILACION_CO2_ACTIVA', 20);
     const noUnit = twin('SIN_CLIMATIZACION', 10, false, false, 80);
     expect(fleetPower([inClass, noUnit], atSevenBogota)).toEqual({ actualKw: 1.5, baselineKw: 6 });
-    expect(fleetPower([inClass], beforeSeven).baselineKw).toBe(0);
+    // A class outside the usual hours runs a conventional unit too.
+    expect(fleetPower([inClass], beforeSeven).baselineKw).toBe(6);
   });
 
   it('counts a booked room in the baseline even before anyone arrives, and an empty unbooked one in neither', () => {

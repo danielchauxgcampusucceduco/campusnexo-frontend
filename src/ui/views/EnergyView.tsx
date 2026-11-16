@@ -60,7 +60,7 @@ export function EnergyView() {
       <section aria-labelledby="energy-title">
         <h1 id="energy-title" tabIndex={-1} className="lettering text-2xl font-semibold">Ahorro energético</h1>
         <p className="view-intro mt-1 max-w-[70ch] text-sm text-ink-soft">
-          La comparación es contra un sistema convencional: la climatización a plena potencia mientras el salón está en uso programado (desde 30 min antes de una reserva hasta su final, o con personas dentro), entre las {ENERGY.scheduleStartHour}:00 y las {ENERGY.scheduleEndHour}:00, con {formatNumber(ENERGY.ratedKwPerSqm, 2)} kW por m². CampusNexo ahorra frente a eso al apagar con la inercia térmica, ventilar en lugar de calentar y bloquear los salones vacíos. Un salón apagado no consume. Son estimaciones del modelo, no lecturas de medidor.
+          La comparación es contra un sistema convencional: la climatización a plena potencia mientras el salón está en uso programado (desde 30 min antes de una reserva hasta su final, o con personas dentro), a cualquier hora, con {formatNumber(ENERGY.ratedKwPerSqm, 2)} kW por m². CampusNexo ahorra frente a eso al apagar con la inercia térmica, ventilar en lugar de calentar y bloquear los salones vacíos. Un salón apagado no consume. Son estimaciones del modelo, no lecturas de medidor.
         </p>
 
         <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
