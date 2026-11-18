@@ -17,39 +17,6 @@ export const SPACE_STATUSES = [
 ] as const;
 export type SpaceStatus = (typeof SPACE_STATUSES)[number];
 
-/** Java: edu.campusnexo.domain.twin.HvacControlState (the supervisory "HVAC mode"). */
-export const HVAC_CONTROL_STATES = [
-  'APAGADO',
-  'PRE_ENFRIAMIENTO_IA',
-  'PRE_CALENTAMIENTO_IA',
-  'CONFORT_ACTIVO',
-  'ECO_SETBACK_ENTRE_CLASES',
-  'CORTE_INERCIA_TERMICA',
-  'BLOQUEO_AHORRO_VACIO',
-  'VENTILACION_CO2_ACTIVA',
-  'OVERRIDE_MANUAL_DOCENTE',
-  'SIN_CLIMATIZACION',
-] as const;
-export type HvacControlState = (typeof HVAC_CONTROL_STATES)[number];
-
-/** Share of rated power drawn in each state; same values as HvacControlState.powerFraction(). */
-export const HVAC_POWER_FRACTION: Record<HvacControlState, number> = {
-  APAGADO: 0,
-  PRE_ENFRIAMIENTO_IA: 1,
-  PRE_CALENTAMIENTO_IA: 1,
-  CONFORT_ACTIVO: 1,
-  ECO_SETBACK_ENTRE_CLASES: 0.4,
-  CORTE_INERCIA_TERMICA: 0,
-  BLOQUEO_AHORRO_VACIO: 0,
-  VENTILACION_CO2_ACTIVA: 0.25,
-  OVERRIDE_MANUAL_DOCENTE: 1,
-  SIN_CLIMATIZACION: 0,
-};
-
-/** Java: edu.campusnexo.domain.climate.HvacMode — what the unit does inside a strategy. */
-export const HVAC_MODES = ['APAGADO', 'CALEFACCION', 'ENFRIAMIENTO', 'DESHUMIDIFICACION'] as const;
-export type HvacMode = (typeof HVAC_MODES)[number];
-
 export type ZoneDeskState = 'DISPONIBLE' | 'OCUPADO_VERIFICADO' | 'ALERTA_ACAPARAMIENTO' | 'LIBERADO_POR_ABANDONO';
 export type SpaceType =
   | 'AULA'
@@ -63,22 +30,11 @@ export type SpaceType =
   | 'SALA_COMPUTO'
   | 'ZONA_COMUN';
 
-/** Java: RoomCondition, the overall state of a room on the campus map. */
-export const ROOM_CONDITIONS = [
-  'LIBRE',
-  'OCUPADO',
-  'SOBRECUPO',
-  'LUCES_SIN_OCUPACION',
-  'EQUIPOS_SIN_USO',
-  'LUCES_Y_EQUIPOS_SIN_USO',
-  'MANTENIMIENTO',
-] as const;
+/** How a room is used now, as the camera sees it: what the campus map paints. */
+export const ROOM_CONDITIONS = ['LIBRE', 'OCUPADO', 'SOBRECUPO', 'MANTENIMIENTO'] as const;
 export type RoomCondition = (typeof ROOM_CONDITIONS)[number];
-/** Conditions where something draws power with nobody in the room. */
-export const WASTE_CONDITIONS: ReadonlySet<RoomCondition> = new Set(['LUCES_SIN_OCUPACION', 'EQUIPOS_SIN_USO', 'LUCES_Y_EQUIPOS_SIN_USO']);
 
-export type ClimateProfile = 'SEDE_TROPICAL' | 'SEDE_ANDINA' | 'SEDE_TEMPLADA';
-export type MeasurementSource = 'CAMARA_YOLO' | 'CO2_BALANCE_MASICO' | 'WIFI_DISPOSITIVOS';
+export type MeasurementSource = 'CAMARA_YOLO' | 'WIFI_DISPOSITIVOS';
 export type HexagonalLayer =
   | 'INBOUND_ADAPTER'
   | 'INPUT_PORT'
@@ -90,15 +46,11 @@ export type HexagonalLayer =
 /** Java: EscenarioOperativo, recognized by ReconocedorDeEscenarios from the twin state. */
 export const ESCENARIOS_OPERATIVOS = [
   'CLASE_EN_CURSO',
-  'CO2_ALTO',
   'FALLO_CAMARA',
   'SOBRECUPO',
   'NO_SHOW',
   'SUBUTILIZADO',
   'POPUP_PARCIALES',
-  'LUCES_ENCENDIDAS',
-  'EQUIPOS_ENCENDIDOS',
-  'OVERRIDE_DOCENTE',
   'MANTENIMIENTO',
   'ACAPARAMIENTO',
 ] as const;
@@ -127,16 +79,14 @@ export interface CampusSpace {
   branchId: string;
   branchName: string;
   city: string;
-  climateProfile: ClimateProfile;
-  energyTariffCopPerKwh: number;
   floor: number;
-  /** Workstations whose power state the room's Arduino reports. */
+  /** Workstations of the room; their agents report whether each one is on. */
   computers: number;
   /** Seat grid seen by the camera; null for offices and storage rooms. */
   seatRows: number | null;
   seatColumns: number | null;
-  /** The room has a climate unit the twin can command. */
-  hvacInstalled: boolean;
+  /** Academic and study spaces: the camera follows them and they are offered as available (offices are not). */
+  accesibleParaEstudiantes: boolean;
 }
 
 /** Normalized floor point, [x, y] in 0..1; y = 0 is the board. */
@@ -190,52 +140,21 @@ export interface KalmanStep {
   posteriorVariance: number;
 }
 
-/** Java: ThermalDecision (TwinContracts.ThermalResponse). */
-export interface ThermalDecision {
-  recommendedState: HvacControlState;
-  mode: HvacMode;
-  setpointC: number;
-  horizonMinutes: number;
-  stepMinutes: number;
-  freeRunningTrajectoryC: number[];
-  explanation: string;
-}
-
 /** Java: SpaceTwinState (TwinContracts.TwinStateResponse). */
 export interface SpaceTwinState {
   spaceId: string;
   status: SpaceStatus;
-  hvacState: HvacControlState;
-  hvacStateSince: string;
-  /** What the unit is doing in that strategy, its setpoint and the rule that decided it (Java: HvacSetting). */
-  hvacMode: HvacMode;
-  hvacSetpointC: number;
-  hvacReason: string;
   occupancy: number;
   occupancyEstimate: number;
   occupancyStdDev: number;
-  indoorTemperatureC: number;
-  outdoorTemperatureC: number;
-  co2Ppm: number;
-  humidityPct: number;
   cameraOnline: boolean;
-  energySavedKwh: number;
-  overrideUntil: string | null;
   popUpUntil: string | null;
   maintenance: boolean;
   updatedAt: string;
   desks: DeskObservation[];
   kalman: KalmanStep | null;
-  thermal: ThermalDecision | null;
-  condition: RoomCondition;
-  lightsOn: boolean;
-  illuminanceLux: number;
-  devicesOn: number;
-  devicesTotal: number;
   /** When the room became empty; null while there are people. */
   emptySince: string | null;
-  /** Last automatic shutdown of lights and computers. */
-  equipmentShutdownAt: string | null;
   /** People in the band in front of the board (Java: Presence). */
   teachersPresent: number;
   /** People inside a seat region. */
@@ -243,8 +162,8 @@ export interface SpaceTwinState {
   /** The camera data came from the device emulator, not from a real camera. */
   emulated: boolean;
   lastCameraFrameAt: string | null;
-  /** Some device of the room has reported at least once; without it the room has no sensor (not the same as free). */
-  sensorsReporting?: boolean;
+  /** The room's camera has reported at least once; without it the room has no sensor (not the same as free). */
+  sensorsReporting: boolean;
   escenarios: EscenarioReconocido[];
 }
 
@@ -272,36 +191,14 @@ export interface ArchitectureTrace {
   steps: TraceStep[];
 }
 
-export interface SpaceSavings {
-  spaceId: string;
-  name: string;
-  branchName: string;
-  hvacState: HvacControlState;
-  ratedKw: number;
-  kwh: number;
-  cop: number;
-  kgCo2: number;
-}
-
-export interface SavingsReport {
-  generatedAt: string;
-  totalKwh: number;
-  totalCop: number;
-  totalKgCo2: number;
-  emissionFactorKgCo2PerKwh: number;
-  spaces: SpaceSavings[];
-}
-
 // ---- Administration (Java: alert, persona, activo and AiAdvisorPort) ------------------------------
 
 export const ALERT_TYPES = [
-  'CO2_ALTO',
   'SOBRECUPO',
-  'CONSUMO_ESPACIO_VACIO',
   'RESERVA_SIN_USO',
+  'HORARIO_SIN_USO',
   'CPU_ENCENDIDA_SIN_USUARIO',
   'ACTIVO_FALTANTE',
-  'SENSOR_ANOMALO',
   'FALLO_CAMARA',
 ] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
@@ -338,7 +235,6 @@ export interface MedidasEspacio {
   seatRows: number | null;
   seatColumns: number | null;
   computers: number;
-  hvacInstalled: boolean;
 }
 
 export type TipoActivo = 'CPU' | 'SILLA' | 'MESA';
@@ -400,17 +296,7 @@ export interface RevisionDePuestos {
   emparejamiento: EmparejamientoCpu | null;
 }
 
-/** AiAdvisorPort.SensorAnomaly. */
-export interface SensorAnomaly {
-  spaceId: string;
-  sensor: string;
-  at: string;
-  kind: string;
-  value: number;
-  detail: string;
-}
-
-/** AiAdvisorPort.AssignmentPlan. */
+/** AiAdvisorPort.AssignmentPlan; `nominalPowerKw` and `totalPowerKw` carry the cost the service minimized: the capacity. */
 export interface AssignmentPlan {
   feasible: boolean;
   assignments: { courseId: string; roomId: string; attendance: number; capacity: number; utilizationPct: number; nominalPowerKw: number }[];
@@ -437,28 +323,10 @@ export interface FranjaDemo {
   hasta: number;
 }
 
-export interface DispositivoDemo {
-  nombre: string;
-  categoria: 'PROYECCION' | 'COMPUTO';
-  /** Identical units grouped (the PCs of a room). */
-  cantidad: number;
-  encendidos: number;
-  pantalla: boolean;
-  /** Fridges, incubators, bioreactors: on is the expected state. */
-  siempreEncendido: boolean;
-  /** What the normal camera sees: only a lit screen tells; null when it cannot tell (no screen, or no signal). */
-  camaraNormal: boolean | null;
-  termico: 'CALIENTE' | 'TIBIO' | 'FRIO';
-  temperaturaC: number;
-  x: number | null;
-  y: number | null;
-}
-
 export interface PersonaDemo {
   x: number;
   y: number;
   docente: boolean;
-  visibleCamaraNormal: boolean;
 }
 
 export interface SalaDemo {
@@ -475,16 +343,11 @@ export interface SalaDemo {
     uso: UsoDemo;
     curso: string | null;
     personas: number;
-    personasCamaraNormal: number | null;
-    personasInfrarroja: number;
     docente: boolean;
-    luces: boolean;
-    camaraNormalEnLinea: boolean;
-    temperaturaC: number;
-    co2Ppm: number;
-    potenciaKw: number;
-    dispositivosEncendidos: number;
-    dispositivos: DispositivoDemo[];
+    /** The camera lost its signal: the twin keeps its last estimate. */
+    camaraEnLinea: boolean;
+    /** Until which time the room stays free (HH:MM); null while a class is under way. */
+    libreHasta: string | null;
     personasVistas: PersonaDemo[];
     hallazgos: string[];
   };
@@ -509,4 +372,49 @@ export interface ImportacionPersonas {
   filas: number;
   guardadas: number;
   rechazadas: { fila: number; codigo: string; motivo: string }[];
+}
+
+// ---- Availability (GET /disponibilidad; Java: DisponibilidadUseCase) ----------------------------------
+
+/** PROGRAMADO_SIN_USO: a class or booking under way with nobody in the room, so it is free in practice. */
+export const ESTADOS_FRANJA = ['LIBRE', 'CLASE', 'RESERVADO', 'OCUPADO', 'PROGRAMADO_SIN_USO'] as const;
+export type EstadoFranja = (typeof ESTADOS_FRANJA)[number];
+
+export interface FranjaDisponible {
+  /** HH:MM:SS */
+  desde: string;
+  hasta: string;
+  estado: EstadoFranja;
+  detalle: string | null;
+}
+
+/** One student space; `ahora` and `libreHasta` are null on another day or while it is in use. */
+export interface EspacioDisponible {
+  spaceId: string;
+  nombre: string;
+  tipo: SpaceType;
+  edificio: string;
+  piso: number;
+  aforo: number;
+  conCamara: boolean;
+  personas: number;
+  ahora: EstadoFranja | null;
+  libreHasta: string | null;
+  franjas: FranjaDisponible[];
+}
+
+export interface DisponibilidadDelCampus {
+  /** YYYY-MM-DD */
+  fecha: string;
+  generadoEn: string;
+  abre: string;
+  cierra: string;
+  espacios: EspacioDisponible[];
+}
+
+/** The room's use now: out of service, over capacity, with people, or free. */
+export function roomCondition({ space, state }: Pick<TwinSpace, 'space' | 'state'>): RoomCondition {
+  if (state.maintenance) return 'MANTENIMIENTO';
+  if (state.occupancy > space.capacity) return 'SOBRECUPO';
+  return state.occupancy > 0 ? 'OCUPADO' : 'LIBRE';
 }

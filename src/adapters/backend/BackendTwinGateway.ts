@@ -1,28 +1,21 @@
 import type { Client, IMessage } from '@stomp/stompjs';
-import type { ArchitectureTrace, SavingsReport, SpaceTwinState, TwinSpace } from '../../domain/model';
-import { HVAC_CONTROL_STATES, HVAC_MODES, SPACE_STATUSES } from '../../domain/model';
+import type { ArchitectureTrace, SpaceTwinState, TwinSpace } from '../../domain/model';
+import { SPACE_STATUSES } from '../../domain/model';
 import type { ConnectionState, GatewayCapabilities, GatewayUser, Latency, TwinGateway, TwinSnapshot } from '../../ports/TwinGateway';
 import { httpClient, type Http } from './http';
-import { savingsFromTwins } from '../../domain/kpis';
 
 export { BackendError } from './http';
 
 const MAX_TRACES = 40;
 const LATENCY_WINDOW = 60;
-const TWIN_NUMERIC_FIELDS = [
-  'occupancy', 'occupancyEstimate', 'occupancyStdDev', 'indoorTemperatureC', 'outdoorTemperatureC',
-  'co2Ppm', 'humidityPct', 'energySavedKwh', 'illuminanceLux', 'devicesOn', 'devicesTotal', 'hvacSetpointC',
-  'teachersPresent', 'studentsPresent',
-] as const;
-const TWIN_BOOLEAN_FIELDS = ['cameraOnline', 'maintenance', 'lightsOn', 'emulated'] as const;
+const TWIN_NUMERIC_FIELDS = ['occupancy', 'occupancyEstimate', 'occupancyStdDev', 'teachersPresent', 'studentsPresent'] as const;
+const TWIN_BOOLEAN_FIELDS = ['cameraOnline', 'maintenance', 'emulated', 'sensorsReporting'] as const;
 
 /** The first field of a pushed twin event outside the contract, or null when the event is valid. */
 export function twinContractProblem(state: SpaceTwinState): string | null {
   if (!state || typeof state !== 'object') return 'evento';
   if (typeof state.spaceId !== 'string' || !state.spaceId.trim() || state.spaceId !== state.spaceId.trim()) return 'spaceId';
   if (!SPACE_STATUSES.includes(state.status)) return 'status';
-  if (!HVAC_CONTROL_STATES.includes(state.hvacState)) return 'hvacState';
-  if (!HVAC_MODES.includes(state.hvacMode)) return 'hvacMode';
   const numeric = TWIN_NUMERIC_FIELDS.find((field) => !Number.isFinite(state[field]));
   if (numeric) return numeric;
   const flag = TWIN_BOOLEAN_FIELDS.find((field) => typeof state[field] !== 'boolean');
@@ -50,7 +43,6 @@ export class BackendTwinGateway implements TwinGateway {
   readonly http: Http;
 
   private twins: TwinSpace[] = [];
-  private savings: SavingsReport | null = null;
   private traces: ArchitectureTrace[] = [];
   private latencies: number[] = [];
   private stopped = false;
@@ -68,13 +60,11 @@ export class BackendTwinGateway implements TwinGateway {
   }
 
   async start(): Promise<void> {
-    const [twins, savings, traces] = await Promise.all([
+    const [twins, traces] = await Promise.all([
       this.http<TwinSpace[]>('/twin/spaces'),
-      this.http<SavingsReport>('/twin/savings'),
       this.http<ArchitectureTrace[]>('/twin/traces', { query: { limit: 20 } }),
     ]);
     this.twins = twins;
-    this.savings = savings;
     this.traces = traces;
     this.connection = 'degraded';
     this.connectStomp();
@@ -214,8 +204,6 @@ export class BackendTwinGateway implements TwinGateway {
   private build(): TwinSnapshot {
     return {
       twins: this.twins,
-      // Loaded once at start for its emission factor; from then on it follows the pushed twin states (P2).
-      savings: this.savings ? savingsFromTwins(this.twins, this.savings.emissionFactorKgCo2PerKwh, Date.now()) : null,
       traces: this.traces,
       now: Date.now(),
       connection: this.connection,

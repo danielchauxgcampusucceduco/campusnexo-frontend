@@ -10,7 +10,7 @@ const inputClass = 'rounded-lg border border-rule bg-field px-2.5 py-1.5 text-sm
 
 const medidasDe = (space: CampusSpace): MedidasEspacio => ({
   capacity: space.capacity, areaSqm: space.areaSqm, seatRows: space.seatRows, seatColumns: space.seatColumns,
-  computers: space.computers, hvacInstalled: space.hvacInstalled,
+  computers: space.computers,
 });
 
 /**
@@ -76,10 +76,6 @@ export function Espacios() {
             {number('seatColumns', 'Columnas', { min: 1, max: 40 })}
           </div>
         )}
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={medidas.hvacInstalled} onChange={(e) => setMedidas({ ...medidas, hvacInstalled: e.target.checked })} className="h-4 w-4 accent-[var(--color-night)]" />
-          Tiene equipo de clima que el sistema puede controlar
-        </label>
         <button type="submit" disabled={pending} className="w-fit rounded-lg bg-night px-4 py-2 text-sm font-medium text-night-text disabled:opacity-60">{pending ? 'Guardando…' : 'Guardar medidas'}</button>
       </form>
       <aside className="rounded-2xl border border-rule bg-sheet p-4 text-sm text-ink-soft">

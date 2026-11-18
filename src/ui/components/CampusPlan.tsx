@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PlanFloor, PlanRoom } from '../../campus/plan';
-import { centroid, seatSize, seatSpots, standingSpots } from '../../campus/seats';
-import { WASTE_CONDITIONS, type TwinSpace } from '../../domain/model';
+import { seatSize, seatSpots, standingSpots } from '../../campus/seats';
+import { roomCondition, type TwinSpace } from '../../domain/model';
 import { CONDITION_META, DESK_META, SPACE_TYPE_LABEL } from '../theme';
 
 interface Props {
@@ -14,12 +14,11 @@ interface Props {
 }
 
 /**
- * Real floor plan of the campus (walls from the 2025-B DWG) with every room painted by its live state:
- * colour = overall condition, fill strength = occupancy, a lamp glow while the lights are on, a seat grid
- * where each desk lights up when the camera sees someone in it, and the computers drawing power.
+ * Real floor plan of the campus (walls from the 2025-B DWG) with every student space painted by its live use:
+ * colour = free, in use, over capacity or out of service, fill strength = occupancy, and a seat grid where each desk
+ * lights up when the camera sees someone in it. Offices and staff rooms are drawn but not followed.
  */
 export function CampusPlan({ floor, twins, selected, onSelect, block }: Props) {
-  const shutdowns = useShutdownFlashes(floor, twins);
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -39,11 +38,6 @@ export function CampusPlan({ floor, twins, selected, onSelect, block }: Props) {
     <div ref={box} className="relative h-full w-full">
     <svg viewBox={`0 0 ${floor.width} ${floor.height}`} className="campus-plan h-full w-full" role="group" aria-label={`Plano del ${floor.name.toLowerCase()}`}>
       <defs>
-        <radialGradient id="lamp-glow">
-          <stop offset="0%" stopColor="var(--color-lamp)" stopOpacity="0.85" />
-          <stop offset="55%" stopColor="var(--color-lamp)" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="var(--color-lamp)" stopOpacity="0" />
-        </radialGradient>
         <pattern id="plan-hatch" width="0.8" height="0.8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="0.8" stroke="#8d9296" strokeWidth="0.3" />
         </pattern>
@@ -56,7 +50,7 @@ export function CampusPlan({ floor, twins, selected, onSelect, block }: Props) {
       <path d={floor.walls} fill="none" stroke="#5d7f8c" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeLinecap="round" opacity="0.75" />
       {floor.rooms.map((room) => (
         <RoomShape key={room.spaceId} room={room} twin={twins.get(room.spaceId)} dimmed={block !== null && room.block !== block}
-          selected={selected === room.spaceId} flash={shutdowns.has(room.spaceId)} onSelect={onSelect} onHover={setHovered} />
+          selected={selected === room.spaceId} onSelect={onSelect} onHover={setHovered} />
       ))}
     </svg>
       <div aria-hidden className="pointer-events-none absolute inset-0">
@@ -69,8 +63,11 @@ export function CampusPlan({ floor, twins, selected, onSelect, block }: Props) {
   );
 }
 
-/** A room that has never had a device reporting has no sensor: it is not free, it is unknown. */
+/** A student space whose camera has never reported: it is not free, it is unknown. */
 export const withoutSensor = (twin: TwinSpace | undefined) => twin?.state.sensorsReporting === false;
+
+/** An office, staff room or storage: drawn on the plan, not followed by the camera. */
+export const notMonitored = (twin: TwinSpace | undefined) => twin !== undefined && !twin.space.accesibleParaEstudiantes;
 
 /**
  * The room's name and occupancy at a fixed, legible size (12 px), shown only where it fits; a room too small shows it
@@ -91,62 +88,36 @@ function RoomLabel({ room, floor, twin, scale, forced, dimmed }: {
       <span className={`max-w-full truncate rounded px-1 text-[12px] font-bold text-white ${forced && !fits ? 'bg-[#0b171d]/90' : ''}`}
         style={{ textShadow: '0 0 3px #0b171d, 0 0 3px #0b171d' }}>{title}</span>
       <span className="text-[11px] font-semibold" style={{ color: share > 0 ? '#ffffff' : '#c2d4d9', textShadow: '0 0 3px #0b171d' }}>
-        {withoutSensor(twin) ? 'Sin sensor' : `${Math.round(share * 100)} %`}
+        {notMonitored(twin) ? 'No monitoreado' : withoutSensor(twin) ? 'Sin sensor' : `${Math.round(share * 100)} %`}
       </span>
     </div>
   );
 }
 
-/** Rooms whose lights or computers were just switched off by the Arduino, for a short ripple. */
-function useShutdownFlashes(floor: PlanFloor, twins: Map<string, TwinSpace>): Set<string> {
-  const last = useRef(new Map<string, string | null>());
-  const [active, setActive] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    const fresh: string[] = [];
-    for (const room of floor.rooms) {
-      const at = twins.get(room.spaceId)?.state.equipmentShutdownAt ?? null;
-      const before = last.current.get(room.spaceId);
-      if (before !== undefined && at && at !== before) fresh.push(room.spaceId);
-      last.current.set(room.spaceId, at);
-    }
-    if (fresh.length === 0) return;
-    setActive((current) => new Set([...current, ...fresh]));
-    const id = setTimeout(() => setActive((current) => new Set([...current].filter((s) => !fresh.includes(s)))), 3_200);
-    return () => clearTimeout(id);
-  }, [floor, twins]);
-  return active;
-}
-
-function RoomShape({ room, twin, dimmed, selected, flash, onSelect, onHover }: {
-  room: PlanRoom; twin: TwinSpace | undefined; dimmed: boolean; selected: boolean; flash: boolean; onSelect: (spaceId: string) => void;
+function RoomShape({ room, twin, dimmed, selected, onSelect, onHover }: {
+  room: PlanRoom; twin: TwinSpace | undefined; dimmed: boolean; selected: boolean; onSelect: (spaceId: string) => void;
   onHover: (spaceId: string | null) => void;
 }) {
-  const noSensor = withoutSensor(twin);
+  const offList = notMonitored(twin);
+  const noSensor = offList || withoutSensor(twin);
   const state = twin?.state;
-  const condition = state?.condition ?? 'LIBRE';
+  const condition = twin ? roomCondition(twin) : 'LIBRE';
   const meta = CONDITION_META[condition];
   const occupancy = state?.occupancy ?? 0;
   const share = Math.min(1, occupancy / Math.max(1, room.capacity));
   const points = room.polygon.map(([x, y]) => `${x},${y}`).join(' ');
-  const [lx, ly] = [room.rect.cx, room.rect.cy];
-  const short = Math.min(room.rect.w, room.rect.h);
-  const label = Math.max(0.85, Math.min(2.1, short * 0.2));
-  const waste = WASTE_CONDITIONS.has(condition);
-  const lampR = Math.max(1.6, Math.min(room.rect.w, room.rect.h) * 0.6);
   const seats = seatSpots(room);
   const desks = new Map((state?.desks ?? []).map((desk, index) => [index, desk]));
   const seated = (state?.desks ?? []).filter((d) => d.peopleInside > 0).length;
   const standing = seats.length > 0 ? Math.max(0, occupancy - seated) : 0;
   const size = seatSize(room);
-  const [px, py] = centroid(room.polygon);
-  const computers = state?.devicesOn ?? 0;
 
   return (
     <g
       role="button"
       tabIndex={0}
       aria-pressed={selected}
-      aria-label={noSensor ? `${room.name}, sin sensor` : `${room.name}, ${meta.label.toLowerCase()}, ${occupancy} de ${room.capacity}${state?.lightsOn ? ', luces encendidas' : ''}${computers > 0 ? `, ${computers} equipos encendidos` : ''}`}
+      aria-label={offList ? `${room.name}, no monitoreado` : noSensor ? `${room.name}, sin sensor` : `${room.name}, ${meta.label.toLowerCase()}, ${occupancy} de ${room.capacity}`}
       onClick={() => onSelect(room.spaceId)}
       onMouseEnter={() => onHover(room.spaceId)}
       onMouseLeave={() => onHover(null)}
@@ -157,7 +128,6 @@ function RoomShape({ room, twin, dimmed, selected, flash, onSelect, onHover }: {
       style={{ transition: 'opacity 400ms ease' }}
     >
       <title>{`${room.name} · ${SPACE_TYPE_LABEL[room.type]}`}</title>
-      {state?.lightsOn && <circle cx={px} cy={py} r={lampR} fill="url(#lamp-glow)" className="lamp-on" />}
       <polygon
         points={points}
         fill={noSensor ? 'url(#plan-nosensor)' : condition === 'MANTENIMIENTO' ? 'url(#plan-hatch)' : meta.color}
@@ -165,9 +135,8 @@ function RoomShape({ room, twin, dimmed, selected, flash, onSelect, onHover }: {
         stroke={selected ? '#f4fbf9' : noSensor ? '#7d8f96' : meta.color}
         strokeWidth={selected ? 3 : 1.4}
         vectorEffect="non-scaling-stroke"
-        className={`room-fill ${waste ? 'room-waste' : ''}`}
+        className="room-fill"
       />
-      {flash && <polygon points={points} fill="none" stroke="var(--color-lamp)" strokeWidth="4" vectorEffect="non-scaling-stroke" className="iso-pulse" />}
       <g className="seats" pointerEvents="none">
         {seats.map((spot) => {
           const desk = desks.get(spot.index);
@@ -189,14 +158,6 @@ function RoomShape({ room, twin, dimmed, selected, flash, onSelect, onHover }: {
             style={{ animationDelay: `${(spot.index * 251) % 2400}ms` }} />
         ))}
         {seats.length === 0 && occupancy > 0 && <OfficePeople room={room} count={occupancy} />}
-      </g>
-      <g pointerEvents="none" className="room-label">
-        {computers > 0 && (
-          <g transform={`translate(${lx + label * 1.6} ${ly - label * 0.9})`} className="screens-on">
-            <rect x={-label * 0.42} y={-label * 0.3} width={label * 0.84} height={label * 0.56} rx={label * 0.08} fill="var(--color-rc-equipos)" />
-            <rect x={-label * 0.12} y={label * 0.26} width={label * 0.24} height={label * 0.14} fill="var(--color-rc-equipos)" />
-          </g>
-        )}
       </g>
     </g>
   );

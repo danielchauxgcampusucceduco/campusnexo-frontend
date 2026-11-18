@@ -107,10 +107,10 @@ describe('BackendTwinGateway', () => {
 
   it.each([
     ['an unknown status', { status: 'UNKNOWN' }],
-    ['a non-finite reading', { indoorTemperatureC: Number.NaN }],
+    ['a non-finite reading', { occupancyEstimate: Number.NaN }],
     ['a negative occupancy', { occupancy: -4 }],
     ['a padded room id', { spaceId: ' 301-A ' }],
-    ['an unknown HVAC mode', { hvacMode: 'TURBO' }],
+    ['an unknown status', { status: 'TURBO' }],
     ['no presence counts', { teachersPresent: undefined }],
     ['no recognized scenarios', { escenarios: undefined }],
   ])('rejects twin events with %s and names the field', (_case, override) => {
@@ -122,7 +122,7 @@ describe('BackendTwinGateway', () => {
 
     expect(internal.twins[0]!.state.updatedAt).toBe('2026-10-21T12:00:00Z');
     expect(gateway.getSnapshot().connection).toBe('connecting');
-    expect(String(warn.mock.calls[0]?.[0])).toContain(Object.keys(override)[0] === 'hvacMode' ? 'hvacMode' : 'campo');
+    expect(String(warn.mock.calls[0]?.[0])).toContain(Object.keys(override)[0] === 'status' ? 'status' : 'campo');
     warn.mockRestore();
   });
 

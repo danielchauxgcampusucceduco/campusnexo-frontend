@@ -1,8 +1,8 @@
-import { FlaskConical, Lightbulb, Monitor, Thermometer, Users } from 'lucide-react';
+import { CameraOff, DoorOpen, FlaskConical, Users, UsersRound } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTwin } from '../../application/TwinContext';
 import { PLAN_FLOORS, planRoom } from '../../campus/plan';
-import { ROOM_CONDITIONS, type TwinSpace } from '../../domain/model';
+import { ROOM_CONDITIONS, roomCondition, type TwinSpace } from '../../domain/model';
 import { CampusPlan } from '../components/CampusPlan';
 import { CountUp } from '../components/CountUp';
 import { FloorTower } from '../components/FloorTower';
@@ -17,8 +17,8 @@ const BLOCKS = [
 ] as const;
 
 /**
- * The campus as it is right now, on its real floor plans: one floor at a time, every room painted by
- * its state, with the building's floors as a live selector and the selected room's detail beside it.
+ * The campus as it is right now, on its real floor plans: one floor at a time, every student space painted by what
+ * its camera sees, with the building's floors as a live selector and the selected room's detail beside it.
  */
 export function CampusView() {
   const { snapshot, twin } = useTwin();
@@ -30,15 +30,19 @@ export function CampusView() {
 
   const plan = PLAN_FLOORS.find((f) => f.floor === floor) ?? PLAN_FLOORS[0]!;
   const current = twin(selectedSpace);
-  const all = snapshot.twins;
-  const people = all.reduce((sum, t) => sum + t.state.occupancy, 0);
-  const inUse = all.filter((t) => t.state.occupancy > 0).length;
-  const lightsWasted = all.filter((t) => t.state.lightsOn && t.state.occupancy === 0).length;
-  const computersOn = all.reduce((sum, t) => sum + t.state.devicesOn, 0);
-  const occupiedTemps = all.filter((t) => t.state.occupancy > 0);
-  const avgTemp = occupiedTemps.length ? occupiedTemps.reduce((s, t) => s + t.state.indoorTemperatureC, 0) / occupiedTemps.length : 0;
+  // Only the spaces a student can use are followed; offices are drawn but not counted.
+  const all = snapshot.twins.filter((t) => t.space.accesibleParaEstudiantes);
+  const watched = all.filter((t) => t.state.sensorsReporting);
+  const people = watched.reduce((sum, t) => sum + t.state.occupancy, 0);
+  const inUse = watched.filter((t) => t.state.occupancy > 0).length;
+  const free = watched.filter((t) => roomCondition(t) === 'LIBRE').length;
+  const over = watched.filter((t) => roomCondition(t) === 'SOBRECUPO').length;
+  const blind = all.length - watched.length;
   const pilots = all.filter((t) => !planRoom(t.space.spaceId));
-  const present = new Set(plan.rooms.map((r) => twins.get(r.spaceId)?.state.condition ?? 'LIBRE'));
+  const present = new Set(plan.rooms.flatMap((r) => {
+    const t = twins.get(r.spaceId);
+    return t?.space.accesibleParaEstudiantes ? [roomCondition(t)] : [];
+  }));
 
   return (
     <div className="flex flex-col gap-5">
@@ -46,7 +50,7 @@ export function CampusView() {
         <div>
           <h1 tabIndex={-1} className="lettering text-2xl font-semibold">Campus Pasto en vivo</h1>
           <p className="view-intro mt-1 max-w-[72ch] text-sm text-ink-soft">
-            Los planos son los del campus (actualización 2025-B). Cada salón se pinta según lo que ven su cámara y su Arduino: quién está, si las luces y los equipos están encendidos y qué temperatura hace. Toca un salón para ver el detalle.
+            Los planos son los del campus (actualización 2025-B). Cada espacio de estudiantes se pinta según lo que ve su cámara: libre, en uso o con sobrecupo. Las oficinas aparecen en gris porque no se monitorean. Toca un salón para ver el detalle, o abre Disponibilidad para ver los libres por hora.
           </p>
         </div>
         <div role="group" aria-label="Bloque" className="flex rounded-xl border border-rule bg-sheet p-1 text-sm">
@@ -62,10 +66,10 @@ export function CampusView() {
       {pilots.length > 0 && <PilotRooms twins={pilots} selected={selectedSpace} onSelect={selectSpace} />}
 
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={<Users className="h-5 w-5" />} label="Personas en el campus" value={<CountUp value={people} />} note={`${inUse} de ${all.length} espacios en uso`} />
-        <Kpi icon={<Lightbulb className="h-5 w-5" />} label="Luces encendidas sin nadie" value={<CountUp value={lightsWasted} />} note={lightsWasted > 0 ? 'Se apagan solas a los 5 min' : 'Ninguna'} warn={lightsWasted > 0} />
-        <Kpi icon={<Monitor className="h-5 w-5" />} label="Computadores encendidos" value={<CountUp value={computersOn} />} note="según el sensor de corriente" />
-        <Kpi icon={<Thermometer className="h-5 w-5" />} label="Temperatura en salones ocupados" value={<CountUp value={avgTemp} digits={1} suffix=" °C" />} note="promedio de los Arduino" />
+        <Kpi icon={<DoorOpen className="h-5 w-5" />} label="Espacios libres ahora" value={<CountUp value={free} />} note={`de ${watched.length} con cámara`} />
+        <Kpi icon={<Users className="h-5 w-5" />} label="Personas en el campus" value={<CountUp value={people} />} note={`${inUse} espacios en uso`} />
+        <Kpi icon={<UsersRound className="h-5 w-5" />} label="Con sobrecupo" value={<CountUp value={over} />} note={over > 0 ? 'Más personas que puestos' : 'Ninguno'} warn={over > 0} />
+        <Kpi icon={<CameraOff className="h-5 w-5" />} label="Sin cámara todavía" value={<CountUp value={blind} />} note="espacios de estudiantes sin datos" />
       </dl>
 
       <div className="grid gap-5 xl:grid-cols-[200px_minmax(0,1fr)] 2xl:grid-cols-[200px_minmax(0,1fr)_380px]">
@@ -85,8 +89,7 @@ export function CampusView() {
                 <span className="h-3 w-3 rounded-sm" style={{ background: CONDITION_META[c].color }} />{CONDITION_META[c].label}
               </li>
             ))}
-            <li className="flex items-center gap-1.5 text-ink-soft"><span className="h-3 w-3 rounded-full bg-[var(--color-lamp)] shadow-[0_0_8px_var(--color-lamp)]" />Luces encendidas</li>
-            <li className="flex items-center gap-1.5 text-ink-soft" title="Ningún dispositivo del salón (cámara o tablero Arduino) ha enviado datos todavía"><span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(-45deg,#3a4a52_0_2px,#9fb0b8_2px_3px)]" />Sin sensor</li>
+            <li className="flex items-center gap-1.5 text-ink-soft" title="La cámara del espacio no ha enviado datos todavía, o es una oficina que no se monitorea"><span className="h-3 w-3 rounded-sm bg-[repeating-linear-gradient(-45deg,#3a4a52_0_2px,#9fb0b8_2px_3px)]" />Sin cámara o no monitoreado</li>
           </ul>
         </section>
         <aside aria-label="Detalle del salón" className="order-3 min-w-0 xl:col-span-2 2xl:col-span-1">
@@ -129,7 +132,7 @@ function PilotRooms({ twins, selected, onSelect }: { twins: TwinSpace[]; selecte
       <h2 id="pilot-title" className="text-sm font-semibold">Salones piloto</h2>
       <ul className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {twins.map(({ space, state }) => {
-          const meta = CONDITION_META[state.condition];
+          const meta = CONDITION_META[roomCondition({ space, state })];
           return (
             <li key={space.spaceId}>
               <button type="button" aria-pressed={selected === space.spaceId} onClick={() => onSelect(space.spaceId)}

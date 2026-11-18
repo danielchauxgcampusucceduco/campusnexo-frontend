@@ -1,4 +1,4 @@
-import { CalendarPlus, Thermometer, Wrench, BookOpenCheck } from 'lucide-react';
+import { CalendarPlus, Wrench, BookOpenCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useRequest, useTwin } from '../../application/TwinContext';
 import type { SpaceTwinState, TwinSpace } from '../../domain/model';
@@ -60,7 +60,7 @@ export function OperacionesPanel({ twin }: { twin: TwinSpace }) {
           {activeReservation.holderCode && <> · titular {activeReservation.holderCode}{activeReservation.checkedInAt ? ', ya hizo check-in' : ', sin check-in'}</>}
         </p>
       )}
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <button type="button" disabled={pending} className={buttonClass}
           onClick={() => void apply(() => operaciones.setMaintenance(space.spaceId, !state.maintenance),
             state.maintenance ? `${space.spaceId} vuelve a servicio.` : `${space.spaceId} queda en mantenimiento.`)}>
@@ -69,11 +69,6 @@ export function OperacionesPanel({ twin }: { twin: TwinSpace }) {
         <button type="button" disabled={pending || state.maintenance} className={buttonClass}
           onClick={() => void apply(() => operaciones.openPopUp(space.spaceId, 120), `${space.spaceId} abierto como sala de estudio por 2 h.`)}>
           <BookOpenCheck className="h-4 w-4" />Sala de estudio 2 h
-        </button>
-        <button type="button" disabled={pending || !space.hvacInstalled} className={buttonClass}
-          title={space.hvacInstalled ? undefined : 'Este salón no tiene equipo de clima'}
-          onClick={() => void apply(() => operaciones.manualOverride(space.spaceId, 45), `Clima de ${space.spaceId} en control del docente por 45 min.`)}>
-          <Thermometer className="h-4 w-4" />Clima al docente
         </button>
       </div>
 

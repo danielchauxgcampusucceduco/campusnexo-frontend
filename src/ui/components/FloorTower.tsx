@@ -1,10 +1,10 @@
 import type { PlanFloor } from '../../campus/plan';
-import { ROOM_CONDITIONS, type RoomCondition, type TwinSpace } from '../../domain/model';
+import { ROOM_CONDITIONS, roomCondition, type RoomCondition, type TwinSpace } from '../../domain/model';
 import { CONDITION_META } from '../theme';
 
 /**
- * The building seen from the side: one bar per floor, top floor first, split by the condition of its
- * rooms. It is the floor selector and, at a glance, where people are and where energy is wasted.
+ * The building seen from the side: one bar per floor, top floor first, split by how its student spaces are used.
+ * It is the floor selector and, at a glance, where people are and how many rooms are free.
  */
 export function FloorTower({ floors, twins, current, onSelect, block }: {
   floors: PlanFloor[];
@@ -21,13 +21,14 @@ export function FloorTower({ floors, twins, current, onSelect, block }: {
         const counts = new Map<RoomCondition, number>();
         let people = 0;
         for (const room of rooms) {
-          const state = twins.get(room.spaceId)?.state;
-          const condition = state?.condition ?? 'LIBRE';
+          const twin = twins.get(room.spaceId);
+          if (!twin?.space.accesibleParaEstudiantes) continue;
+          const condition = roomCondition(twin);
           counts.set(condition, (counts.get(condition) ?? 0) + 1);
-          people += state?.occupancy ?? 0;
+          people += twin.state.occupancy;
         }
         const active = floor.floor === current;
-        const waste = (counts.get('LUCES_SIN_OCUPACION') ?? 0) + (counts.get('EQUIPOS_SIN_USO') ?? 0) + (counts.get('LUCES_Y_EQUIPOS_SIN_USO') ?? 0);
+        const free = counts.get('LIBRE') ?? 0;
         return (
           <li key={floor.floor}>
             <button
@@ -46,9 +47,9 @@ export function FloorTower({ floors, twins, current, onSelect, block }: {
                   return n > 0 ? <span key={condition} className="h-full transition-[flex-grow] duration-700" style={{ flexGrow: n, background: CONDITION_META[condition].color }} /> : null;
                 })}
               </span>
-              {waste > 0 && (
-                <span className={`mt-1 block text-xs font-medium ${active ? 'text-[var(--color-lamp)]' : 'text-rc-ambos-ink'}`}>
-                  {waste} {waste === 1 ? 'salón' : 'salones'} con energía sin nadie
+              {free > 0 && (
+                <span className={`mt-1 block text-xs font-medium ${active ? 'text-night-text/85' : 'text-st-libre-ink'}`}>
+                  {free} {free === 1 ? 'espacio libre' : 'espacios libres'}
                 </span>
               )}
             </button>

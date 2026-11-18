@@ -1,4 +1,4 @@
-import type { ArchitectureTrace, SavingsReport, SpaceTwinState, TwinSpace } from '../domain/model';
+import type { ArchitectureTrace, SpaceTwinState, TwinSpace } from '../domain/model';
 
 /** 'unauthorized': the session expired or was revoked; the person must sign in again. */
 export type ConnectionState = 'connecting' | 'live' | 'degraded' | 'offline' | 'unauthorized';
@@ -15,7 +15,6 @@ export interface Latency {
 
 export interface TwinSnapshot {
   twins: TwinSpace[];
-  savings: SavingsReport | null;
   traces: ArchitectureTrace[];
   /** Wall time of the last update. */
   now: number;
