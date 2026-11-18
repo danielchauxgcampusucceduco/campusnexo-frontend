@@ -4,6 +4,7 @@ import type {
   AlertType,
   AssignmentPlan,
   DemoSnapshot,
+  DisponibilidadDelCampus,
   EmparejamientoCpu,
   ImportacionPersonas,
   Forecast,
@@ -12,7 +13,6 @@ import type {
   Puesto,
   Reservation,
   RevisionDePuestos,
-  SensorAnomaly,
   SpaceTwinState,
   TipoPersona,
 } from '../domain/model';
@@ -44,10 +44,11 @@ export interface Curso {
  * besides the live twin. The backend decides; the dashboard only sends what the person chose.
  */
 export interface OperacionesPort {
+  /** Free student spaces hour by hour on `fecha` (YYYY-MM-DD, today when missing); every role. */
+  disponibilidad(fecha?: string): Promise<DisponibilidadDelCampus>;
   // OPERATOR and ADMIN
   setMaintenance(spaceId: string, enabled: boolean): Promise<SpaceTwinState>;
   openPopUp(spaceId: string, minutes: number): Promise<SpaceTwinState>;
-  manualOverride(spaceId: string, minutes: number): Promise<SpaceTwinState>;
   reservar(spaceId: string, reserva: NuevaReserva): Promise<Reservation>;
   /** Newest first; `cursor` asks for the page after a previous one, whose cursor `next` names (null at the end). */
   alertas(filter?: { spaceId?: string; type?: AlertType }, cursor?: string): Promise<{ items: Alert[]; next: string | null }>;
@@ -64,7 +65,6 @@ export interface OperacionesPort {
   propuesta(spaceId: string): Promise<RevisionDePuestos | null>;
   emparejar(spaceId: string): Promise<EmparejamientoCpu>;
   confirmar(spaceId: string, descartar: string[]): Promise<AltaDePuesto[]>;
-  saludDeSensores(horas: number): Promise<SensorAnomaly[]>;
   asignar(cursos: Curso[], margenSeguridad: number): Promise<AssignmentPlan>;
   /** Null while the room has no history to forecast from. */
   pronostico(spaceId: string, horas: number): Promise<Forecast | null>;

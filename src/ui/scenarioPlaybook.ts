@@ -1,6 +1,6 @@
 import type { EscenarioOperativo } from '../domain/model';
 
-export type ViewId = 'campus' | 'salon' | 'biblioteca' | 'energia' | 'funciona' | 'alertas' | 'admin' | 'simulacion';
+export type ViewId = 'campus' | 'salon' | 'biblioteca' | 'disponibilidad' | 'funciona' | 'alertas' | 'admin' | 'simulacion';
 
 export interface EscenarioMeta {
   /** Short name on the chip. */
@@ -17,15 +17,11 @@ export interface EscenarioMeta {
  */
 export const ESCENARIO_META: Record<EscenarioOperativo, EscenarioMeta> = {
   CLASE_EN_CURSO: { label: 'Clase en curso', view: 'salon', attention: false },
-  CO2_ALTO: { label: 'CO₂ alto', view: 'salon', attention: true },
   FALLO_CAMARA: { label: 'Cámara caída', view: 'salon', attention: true },
   SOBRECUPO: { label: 'Sobrecupo', view: 'salon', attention: true },
-  NO_SHOW: { label: 'Nadie llegó', view: 'campus', attention: false },
+  NO_SHOW: { label: 'Nadie llegó', view: 'disponibilidad', attention: false },
   SUBUTILIZADO: { label: 'Poca asistencia', view: 'campus', attention: false },
   POPUP_PARCIALES: { label: 'Sala de estudio', view: 'campus', attention: false },
-  LUCES_ENCENDIDAS: { label: 'Luces sin nadie', view: 'campus', attention: true },
-  EQUIPOS_ENCENDIDOS: { label: 'Equipos sin uso', view: 'campus', attention: true },
-  OVERRIDE_DOCENTE: { label: 'Control docente', view: 'salon', attention: false },
   MANTENIMIENTO: { label: 'Mantenimiento', view: 'campus', attention: false },
   ACAPARAMIENTO: { label: 'Puestos acaparados', view: 'biblioteca', attention: true },
 };
@@ -34,9 +30,9 @@ export const VIEW_KEYS: Record<ViewId, string> = {
   campus: 'C',
   salon: 'S',
   biblioteca: 'L',
-  energia: 'E',
+  disponibilidad: 'D',
   funciona: 'F',
   alertas: 'A',
-  admin: 'D',
+  admin: 'G',
   simulacion: 'M',
 };

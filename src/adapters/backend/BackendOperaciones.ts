@@ -4,6 +4,7 @@ import type {
   AlertType,
   AssignmentPlan,
   DemoSnapshot,
+  DisponibilidadDelCampus,
   EmparejamientoCpu,
   ImportacionPersonas,
   Forecast,
@@ -12,7 +13,6 @@ import type {
   Puesto,
   Reservation,
   RevisionDePuestos,
-  SensorAnomaly,
   SpaceTwinState,
   TipoPersona,
 } from '../../domain/model';
@@ -36,12 +36,12 @@ export class BackendOperaciones implements OperacionesPort {
     return this.http(`/twin/spaces/${id(spaceId)}/popup`, { method: 'POST', query: { minutes } });
   }
 
-  manualOverride(spaceId: string, minutes: number): Promise<SpaceTwinState> {
-    return this.http(`/twin/spaces/${id(spaceId)}/override`, { method: 'POST', query: { minutes } });
-  }
-
   reservar(spaceId: string, reserva: NuevaReserva): Promise<Reservation> {
     return this.http(`/spaces/${id(spaceId)}/reservations`, { method: 'POST', body: reserva });
+  }
+
+  disponibilidad(fecha?: string): Promise<DisponibilidadDelCampus> {
+    return this.http('/disponibilidad', { query: { fecha } });
   }
 
   alertas(filter: { spaceId?: string; type?: AlertType } = {}, cursor?: string): Promise<{ items: Alert[]; next: string | null }> {
@@ -84,10 +84,6 @@ export class BackendOperaciones implements OperacionesPort {
 
   confirmar(spaceId: string, descartar: string[]): Promise<AltaDePuesto[]> {
     return this.http(`/admin/spaces/${id(spaceId)}/propuesta/confirmar`, { method: 'POST', body: { descartar } });
-  }
-
-  saludDeSensores(horas: number): Promise<SensorAnomaly[]> {
-    return this.http('/admin/ia/sensores', { query: { horas }, timeoutMs: AI_TIMEOUT_MS });
   }
 
   asignar(cursos: Curso[], margenSeguridad: number): Promise<AssignmentPlan> {

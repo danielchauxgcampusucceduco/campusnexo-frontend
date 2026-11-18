@@ -1,4 +1,4 @@
-import { BellRing, BookOpen, Cctv, Leaf, Map, ScanEye, ShieldCheck, Workflow } from 'lucide-react';
+import { BellRing, BookOpen, CalendarClock, Cctv, Map, ScanEye, ShieldCheck, Workflow } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTwin } from '../application/TwinContext';
 import type { GatewayCapabilities } from '../ports/TwinGateway';
@@ -13,7 +13,7 @@ import { navigate, parseRoute, StageProvider } from './StageContext';
 const AdminView = lazy(() => import('./views/AdminView').then((m) => ({ default: m.AdminView })));
 const AlertsView = lazy(() => import('./views/AlertsView').then((m) => ({ default: m.AlertsView })));
 const CampusView = lazy(() => import('./views/CampusView').then((m) => ({ default: m.CampusView })));
-const EnergyView = lazy(() => import('./views/EnergyView').then((m) => ({ default: m.EnergyView })));
+const DisponibilidadView = lazy(() => import('./views/DisponibilidadView').then((m) => ({ default: m.DisponibilidadView })));
 const HowItWorksView = lazy(() => import('./views/HowItWorksView').then((m) => ({ default: m.HowItWorksView })));
 const LibraryView = lazy(() => import('./views/LibraryView').then((m) => ({ default: m.LibraryView })));
 const SalonView = lazy(() => import('./views/SalonView').then((m) => ({ default: m.SalonView })));
@@ -30,12 +30,12 @@ interface View {
 
 const VIEWS: View[] = [
   { id: 'campus', label: 'Campus en vivo', icon: Map, component: CampusView },
+  { id: 'disponibilidad', label: 'Disponibilidad', icon: CalendarClock, component: DisponibilidadView },
   { id: 'salon', label: 'Salón', icon: Cctv, component: SalonView },
   { id: 'simulacion', label: 'Simulación', icon: ScanEye, component: SimulacionView },
   { id: 'biblioteca', label: 'Biblioteca', icon: BookOpen, component: LibraryView },
   { id: 'alertas', label: 'Alertas', icon: BellRing, component: AlertsView, requires: 'operations' },
   { id: 'admin', label: 'Administración', icon: ShieldCheck, component: AdminView, requires: 'administration' },
-  { id: 'energia', label: 'Ahorro de energía', icon: Leaf, component: EnergyView },
   { id: 'funciona', label: 'Cómo funciona', icon: Workflow, component: HowItWorksView },
 ];
 

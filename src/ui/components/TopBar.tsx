@@ -1,6 +1,6 @@
-import { LogOut, Timer, UserRound, Zap } from 'lucide-react';
+import { DoorOpen, LogOut, Timer, UserRound } from 'lucide-react';
 import { useTwin } from '../../application/TwinContext';
-import { fleetPower, formatCop, formatNumber } from '../../domain/kpis';
+import { formatNumber } from '../../domain/kpis';
 import { Logo } from './Logo';
 
 const connectionCopy = {
@@ -19,7 +19,9 @@ const LATENCY_TARGET_MS = 2_000;
 export function TopBar() {
   const { gateway, snapshot, signOut } = useTwin();
   const clock = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Bogota' }).format(snapshot.now);
-  const power = fleetPower(snapshot.twins, snapshot.now);
+  // Student spaces whose camera reports and sees nobody: free right now.
+  const watched = snapshot.twins.filter((t) => t.space.accesibleParaEstudiantes && t.state.sensorsReporting);
+  const free = watched.filter((t) => t.state.occupancy === 0 && !t.state.maintenance).length;
   const latency = snapshot.latency;
   const metrics = (
     <>
@@ -31,17 +33,12 @@ export function TopBar() {
           <span className={`font-semibold tabular-nums ${latency.p95Ms <= LATENCY_TARGET_MS ? 'text-white' : 'text-[#ffb4a6]'}`}>{formatNumber(latency.p95Ms / 1000, 2)} s</span>
         </span>
       )}
-      <span className="flex items-center gap-1.5" title={`Climatización ahora frente a ${formatNumber(power.baselineKw)} kW de un sistema convencional con el mismo uso programado`}>
-        <Zap className="h-4 w-4 text-ucc-lima" />
-        <span className="text-night-text/75">Clima</span>
-        <span className="font-semibold text-white">{formatNumber(power.actualKw)} kW</span>
-        <span className="hidden text-night-text/75 2xl:inline">de {formatNumber(power.baselineKw)} kW sin CampusNexo</span>
-      </span>
-      {snapshot.savings && (
-        <span className="text-night-text/75" title="Ahorro estimado acumulado">
-          Ahorro <span className="font-semibold text-white">{formatNumber(snapshot.savings.totalKwh, 2)} kWh</span>, {formatCop(snapshot.savings.totalCop)}
-        </span>
-      )}
+      <a href="#/disponibilidad" className="flex items-center gap-1.5 hover:text-white" title="Espacios de estudiantes con cámara en los que no hay nadie ahora">
+        <DoorOpen className="h-4 w-4 text-ucc-lima" />
+        <span className="text-night-text/75">Libres</span>
+        <span className="font-semibold tabular-nums text-white">{free}</span>
+        <span className="text-night-text/75">de {watched.length} con cámara</span>
+      </a>
     </>
   );
 
