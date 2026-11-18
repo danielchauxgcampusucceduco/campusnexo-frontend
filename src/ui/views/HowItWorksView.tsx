@@ -1,14 +1,14 @@
-import { ArrowLeft, BellRing, Cctv, Cpu, GraduationCap, Lightbulb, Scale, Snowflake, Wifi } from 'lucide-react';
+import { ArrowLeft, BellRing, CalendarClock, Cctv, GraduationCap, Network, Scale, Wifi } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useTwin } from '../../application/TwinContext';
-import { formatNumber } from '../../domain/kpis';
+import { roomCondition } from '../../domain/model';
 import { useStage } from '../StageContext';
-import { CONDITION_META, HVAC_META, STATUS_META } from '../theme';
+import { CONDITION_META, STATUS_META } from '../theme';
 import { ArchitectureView } from './ArchitectureView';
 
 /**
  * How CampusNexo works, in plain language and with the selected room's live values: what it senses,
- * how it decides and what it switches. The software architecture is one click away for the jury.
+ * how it decides and how it tells the administrator which rooms are free. The software architecture is one click away for the jury.
  */
 export function HowItWorksView() {
   const [technical, setTechnical] = useState(false);
@@ -27,7 +27,7 @@ export function HowItWorksView() {
   const current = twin(selectedSpace) ?? snapshot.twins[0];
   if (!current) return null;
   const { state, space } = current;
-  const cond = CONDITION_META[state.condition];
+  const cond = CONDITION_META[roomCondition(current)];
   const cam = state.kalman?.measurements.find((m) => m.source === 'CAMARA_YOLO');
 
   return (
@@ -35,7 +35,7 @@ export function HowItWorksView() {
       <div>
         <h1 tabIndex={-1} className="lettering text-2xl font-semibold">Cómo funciona</h1>
         <p className="view-intro mt-1 max-w-[70ch] text-sm text-ink-soft">
-          Cada salón tiene una cámara con inteligencia artificial y un Arduino con sensores. Cada pocos segundos el sistema junta lo que miden, decide qué hacer y lo hace solo. Abajo están los valores reales de <b className="text-ink">{space.name}</b> en este momento.
+          Cada espacio para estudiantes tiene una cámara PoE con inteligencia artificial, conectada por cable de red al portátil de borde, que a su vez está en la red del campus. Cada pocos segundos el sistema cuenta quién hay, decide si el espacio está libre y se lo muestra al administrador. Abajo están los valores reales de <b className="text-ink">{space.name}</b> en este momento.
         </p>
       </div>
 
@@ -46,30 +46,28 @@ export function HowItWorksView() {
           <Fact icon={<Wifi className="h-4 w-4" />} label="Celulares en el Wi-Fi">{Math.round(state.kalman?.measurements.find((m) => m.source === 'WIFI_DISPOSITIVOS')?.value ?? 0)}</Fact>
           <p className="text-sm text-ink-soft">La IA reconoce personas y mobiliario: quien está frente al tablero cuenta como docente y quien está en un puesto, como estudiante. No guarda ni envía imágenes.</p>
         </Stage>
-        <Stage n={2} title="Mide" icon={<Cpu className="h-6 w-6" />} tone="var(--color-rc-luces)">
-          <Fact label="Temperatura (DHT22)">{formatNumber(state.indoorTemperatureC)} °C</Fact>
-          <Fact label="Humedad">{Math.round(state.humidityPct)} %</Fact>
-          <Fact label="Luces">{state.lightsOn ? 'encendidas' : 'apagadas'} · {Math.round(state.illuminanceLux)} lux</Fact>
-          <Fact label="Equipos encendidos">{space.computers > 0 ? `${state.devicesOn} de ${space.computers}` : 'no tiene'}</Fact>
-          <Fact label="CO₂ del aire">{Math.round(state.co2Ppm)} ppm</Fact>
+        <Stage n={2} title="Envía" icon={<Network className="h-6 w-6" />} tone="var(--color-rc-ocupado)">
+          <Fact label="Cámara">{state.sensorsReporting ? (state.cameraOnline ? 'en línea' : 'sin señal') : 'sin datos todavía'}</Fact>
+          <Fact label="Ruta">cámara PoE → portátil de borde → red del campus</Fact>
+          <p className="text-sm text-ink-soft">El portátil corre YOLO sobre el video y envía al servidor solo las posiciones de las personas; ninguna imagen sale del campus.</p>
         </Stage>
         <Stage n={3} title="Decide" icon={<Scale className="h-6 w-6" />} tone="var(--color-rc-ocupado)">
-          <Fact label="Personas (las 3 pistas juntas)">{state.occupancy} de {space.capacity}</Fact>
+          <Fact label="Personas (filtro de Kalman)">{state.occupancy} de {space.capacity}</Fact>
           <p className="text-lg font-semibold leading-tight" style={{ color: cond.ink }}>{cond.label}</p>
           <p className="text-sm text-ink-soft">{cond.hint}. {STATUS_META[state.status].label}.</p>
-          <p className="text-sm text-ink-soft">Reglas: si no hay nadie 5 minutos, se apagan luces y equipos; el clima se ajusta a cuántas personas hay y al calor que ya guarda el salón.</p>
+          <p className="text-sm text-ink-soft">Reglas: con más personas que puestos hay sobrecupo; si una clase o reserva lleva 15 minutos sin nadie, el espacio queda libre en la práctica.</p>
         </Stage>
-        <Stage n={4} title="Actúa" icon={<Snowflake className="h-6 w-6" />} tone="var(--color-st-libre)">
-          <Fact icon={<Snowflake className="h-4 w-4" />} label="Clima">{HVAC_META[state.hvacState].label}</Fact>
-          <Fact icon={<Lightbulb className="h-4 w-4" />} label="Relé de luces y equipos">{state.equipmentShutdownAt ? 'apagó lo que sobraba' : state.lightsOn ? 'luces encendidas' : 'en reposo'}</Fact>
+        <Stage n={4} title="Informa" icon={<CalendarClock className="h-6 w-6" />} tone="var(--color-st-libre)">
+          <Fact icon={<CalendarClock className="h-4 w-4" />} label="Disponibilidad">libres por hora, de 7:00 a 22:00</Fact>
           <Fact icon={<BellRing className="h-4 w-4" />} label="Escenarios reconocidos">{state.escenarios.length === 0 ? 'ninguno' : state.escenarios.length}</Fact>
+          <p className="text-sm text-ink-soft">Al administrador le llega una alerta cuando un salón programado queda sin uso, para que pueda ofrecerlo.</p>
         </Stage>
       </ol>
 
       <div className="rounded-2xl border border-rule bg-sheet p-5">
         <h2 className="text-lg font-semibold">¿Y por dentro?</h2>
         <p className="mt-1 max-w-[70ch] text-sm text-ink-soft">
-          El programa está organizado como un hexágono: las reglas del campus están en el centro y no dependen de la cámara, del Arduino ni de la base de datos. Por eso se puede cambiar un sensor sin tocar las reglas. La vista técnica muestra, paso a paso, por dónde pasa cada evento.
+          El programa está organizado como un hexágono: las reglas del campus están en el centro y no dependen de la cámara ni de la base de datos. Por eso se puede cambiar la cámara o el detector sin tocar las reglas. La vista técnica muestra, paso a paso, por dónde pasa cada evento.
         </p>
         <button type="button" onClick={() => setTechnical(true)} className="mt-3 rounded-xl bg-night px-4 py-2.5 text-sm font-medium text-night-text transition-transform hover:-translate-y-0.5">
           Ver el recorrido técnico (arquitectura hexagonal)

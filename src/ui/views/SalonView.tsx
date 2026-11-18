@@ -1,18 +1,18 @@
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTwin } from '../../application/TwinContext';
-import { ArduinoPanel } from '../components/ArduinoPanel';
 import { KalmanPanel } from '../components/KalmanPanel';
 import { OperacionesPanel } from '../components/OperacionesPanel';
 import { PronosticoPanel } from '../components/PronosticoPanel';
 import { RoomFloor } from '../components/RoomFloor';
 import { ESCENARIO_META } from '../scenarioPlaybook';
 import { replaceRoute, useRouteParam, useStage } from '../StageContext';
+import { roomCondition } from '../../domain/model';
 import { CONDITION_META, MEASUREMENT_META } from '../theme';
 
 /**
  * One room up close: who the camera places in front of the board and in the seats, the scenarios the backend
- * recognizes there, its Arduino readings, how the people count is reached and, for staff, its controls.
+ * recognizes there, how the people count is reached and, for staff, its controls.
  */
 export function SalonView() {
   const { gateway, snapshot, twin } = useTwin();
@@ -52,6 +52,7 @@ export function SalonView() {
   if (!current) return null;
   const { state, space } = current;
   const kalman = state.kalman;
+  const cond = CONDITION_META[roomCondition(current)];
 
   return (
     <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_440px]">
@@ -97,21 +98,19 @@ export function SalonView() {
       <aside className="flex min-w-0 flex-col gap-4">
         <div className="rounded-2xl border border-rule bg-sheet p-4">
           <p className="text-sm text-ink-soft">Estado del salón</p>
-          <p className="text-2xl font-semibold" style={{ color: CONDITION_META[state.condition].ink }}>{CONDITION_META[state.condition].label}</p>
-          <p className="text-sm text-ink-soft">{state.occupancy} de {space.capacity} personas · {CONDITION_META[state.condition].hint}</p>
+          <p className="text-2xl font-semibold" style={{ color: cond.ink }}>{cond.label}</p>
+          <p className="text-sm text-ink-soft">{state.occupancy} de {space.capacity} personas · {cond.hint}</p>
         </div>
 
         {gateway.capabilities.operations && <OperacionesPanel twin={current} />}
         <PronosticoPanel spaceId={space.spaceId} canExport={gateway.capabilities.administration} />
 
-        <ArduinoPanel twin={current} />
-
         <section className="rounded-2xl border border-rule bg-sheet p-4" aria-labelledby="count-title">
           <h2 id="count-title" className="text-base font-semibold">¿Cómo sabe cuántas personas hay?</h2>
-          <p className="mt-1 text-sm text-ink-soft">Junta tres pistas y confía más en la más segura. Si la cámara se cae, sigue contando con las otras dos.</p>
+          <p className="mt-1 text-sm text-ink-soft">Cuenta con la cámara y, si el Wi-Fi del campus reporta celulares conectados, los suma como segunda pista. Si la cámara se cae, conserva la última estimación y su incertidumbre crece.</p>
           {kalman ? (
             <ul className="mt-3 space-y-2.5">
-              {(['CAMARA_YOLO', 'CO2_BALANCE_MASICO', 'WIFI_DISPOSITIVOS'] as const).map((source) => {
+              {(['CAMARA_YOLO', 'WIFI_DISPOSITIVOS'] as const).map((source) => {
                 const m = kalman.measurements.find((x) => x.source === source);
                 return (
                   <li key={source}>
