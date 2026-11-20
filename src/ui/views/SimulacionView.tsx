@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTwin } from '../../application/TwinContext';
 import { BackendError } from '../../adapters/backend/http';
 import { formatNumber } from '../../domain/kpis';
-import type { DemoSnapshot, SalaDemo, SpaceType, UsoDemo } from '../../domain/model';
+import type { DemoSnapshot, ProgramaDemo, SalaDemo, SpaceType, UsoDemo } from '../../domain/model';
 import { navigate } from '../StageContext';
 import { SPACE_TYPE_LABEL } from '../theme';
 
@@ -19,9 +19,20 @@ const FILTROS: { id: 'todos' | SpaceType; label: string }[] = [
   { id: 'todos', label: 'Todos' },
   { id: 'SALA_COMPUTO', label: 'Salas de informática' },
   { id: 'AULA', label: 'Salones' },
+  { id: 'LABORATORIO', label: 'Laboratorios' },
+  { id: 'AUDITORIO', label: 'Auditorios' },
 ];
 
-const ORDEN_TIPO: Partial<Record<SpaceType, number>> = { SALA_COMPUTO: 0, AULA: 1 };
+const ORDEN_TIPO: Partial<Record<SpaceType, number>> = { SALA_COMPUTO: 0, AULA: 1, LABORATORIO: 2, AUDITORIO: 3 };
+
+/** The program of a group: `MED4A` is Medicine, fourth semester, group A (`ISW…` is Software Engineering). */
+export function programaDe(grupo: string, programas: ProgramaDemo[]): ProgramaDemo | undefined {
+  return programas.find((p) => grupo.startsWith(p.codigo) && /\d/.test(grupo.charAt(p.codigo.length)));
+}
+
+/** Whether the room has any class of that program on the simulated day. */
+export const tieneClaseDe = (sala: SalaDemo, codigo: string, programas: ProgramaDemo[]) =>
+  sala.horario.some((b) => b.curso !== null && programaDe(b.curso.split(' · ').at(-1) ?? '', programas)?.codigo === codigo);
 
 /** The group of a timetable label ("Patrones de Software · 4A" → "4A"), shown in the grid cell. */
 const grupoDe = (curso: string | null) => curso?.split(' · ').at(-1) ?? '';
@@ -102,7 +113,8 @@ function SinIniciar({ demo, onIniciar, iniciando, fallo }: { demo: DemoSnapshot;
         <span className="rounded-full border border-rule px-2 py-0.5 text-xs font-medium text-ink-soft">Detenida</span>
       </h1>
       <p className="view-intro mt-2 text-sm text-ink-soft">
-        La simulación recorre una semana de {demo.programa} con su horario real: cada día hábil, de 7:00 a 22:00, pasa en unos
+        La simulación recorre una semana de {demo.programa} ({demo.programas.length} programas, con todos sus semestres): Ingeniería de Software
+        con su horario real y las demás carreras, especializaciones y la maestría con un horario generado. Cada día hábil, de 7:00 a 22:00, pasa en unos
         {' '}{formatNumber(900 / demo.minutosSimuladosPorMinuto, 0)} minutos. Mientras está activa, envía al gemelo frames de cámara
         marcados como <b>emulados</b>, y el campus en vivo, la disponibilidad y las alertas reaccionan como con cámaras reales.
       </p>
@@ -125,11 +137,13 @@ function SinIniciar({ demo, onIniciar, iniciando, fallo }: { demo: DemoSnapshot;
 export function SimulacionView() {
   const { demo, error, iniciar, iniciando, falloAlIniciar } = useDemo();
   const [filtro, setFiltro] = useState<'todos' | SpaceType>('todos');
+  const [programa, setPrograma] = useState<string>('todos');
   const [elegido, setElegido] = useState<string | null>(null);
 
   const salones = useMemo(() => (demo?.salones ?? [])
     .filter((s) => filtro === 'todos' || s.tipo === filtro)
-    .sort((a, b) => (ORDEN_TIPO[a.tipo] ?? 9) - (ORDEN_TIPO[b.tipo] ?? 9) || a.nombre.localeCompare(b.nombre, 'es')), [demo, filtro]);
+    .filter((s) => programa === 'todos' || tieneClaseDe(s, programa, demo?.programas ?? []))
+    .sort((a, b) => (ORDEN_TIPO[a.tipo] ?? 9) - (ORDEN_TIPO[b.tipo] ?? 9) || a.nombre.localeCompare(b.nombre, 'es')), [demo, filtro, programa]);
 
   if (!demo) {
     return (
@@ -172,8 +186,9 @@ export function SimulacionView() {
             </h1>
             <p className="view-intro mt-1 max-w-[70ch] text-sm text-ink-soft">
               Una semana de {demo.programa}: cada día hábil, de 7:00 a 22:00, pasa en unos {formatNumber(900 / demo.minutosSimuladosPorMinuto, 0)} minutos,
-              con las clases reales de cada grupo en sus salones, sus estudiantes y su docente. Cada salón tiene una cámara que cuenta a las
-              personas; alrededor del horario se simula lo que suele pasar: clases a las que nadie llega y una cámara que se cae.
+              con cada grupo de cada semestre en su salón, sus estudiantes y su docente. Ingeniería de Software usa su horario real; las demás
+              carreras, especializaciones y la maestría, uno generado sin cruces (pregrado de día, posgrado en la noche). Cada salón tiene una cámara
+              que cuenta a las personas; alrededor del horario se simula lo que suele pasar: clases a las que nadie llega y una cámara que se cae.
             </p>
           </div>
           <div className="flex flex-col items-end gap-2 text-right">
@@ -191,9 +206,18 @@ export function SimulacionView() {
         </dl>
       </section>
 
+      <Programas programas={demo.programas} />
+
       <section aria-labelledby="sim-horario">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="sim-horario" className="text-lg font-semibold">¿Dónde hay salones libres y en qué horario?</h2>
+          <label className="text-xs">
+            <span className="mr-1.5 text-ink-soft">Programa</span>
+            <select value={programa} onChange={(event) => setPrograma(event.target.value)} className="max-w-[16rem] rounded-lg border border-rule bg-sheet px-2 py-1">
+              <option value="todos">Todos ({demo.programas.length})</option>
+              {demo.programas.map((p) => <option key={p.codigo} value={p.codigo}>{p.nombre}</option>)}
+            </select>
+          </label>
           <div role="group" aria-label="Tipo de espacio" className="flex flex-wrap gap-1">
             {FILTROS.map((f) => (
               <button key={f.id} type="button" aria-pressed={filtro === f.id} onClick={() => setFiltro(f.id)}
@@ -263,6 +287,45 @@ function Kpi({ label, value, of, unit, warn }: { label: string; value: number | 
         {of !== undefined && <span className="ml-1 text-base font-normal text-ink-soft">de {of}</span>}
       </dd>
     </div>
+  );
+}
+
+/** The programs of the simulated campus by level: groups this week, weekly sessions and where their semesters come from. */
+function Programas({ programas }: { programas: ProgramaDemo[] }) {
+  const niveles = [...new Set(programas.map((p) => p.nivel))];
+  const grupos = programas.reduce((total, p) => total + p.grupos, 0);
+  const sesiones = programas.reduce((total, p) => total + p.sesionesPorSemana, 0);
+  return (
+    <section aria-labelledby="sim-programas">
+      <details className="rounded-2xl border border-rule bg-sheet p-4">
+        <summary className="cursor-pointer list-none">
+          <span id="sim-programas" className="text-lg font-semibold">Programas en la simulación</span>
+          <span className="ml-2 text-sm text-ink-soft">{programas.length} programas · {grupos} grupos · {sesiones} clases por semana</span>
+        </summary>
+        <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {niveles.map((nivel) => (
+            <div key={nivel}>
+              <h3 className="text-sm font-semibold">{nivel}</h3>
+              <ul className="mt-1 flex flex-col gap-1 text-sm">
+                {programas.filter((p) => p.nivel === nivel).map((p) => (
+                  <li key={p.codigo} className="flex items-baseline justify-between gap-3 border-b border-rule/60 py-1">
+                    <span>
+                      <span className="mr-1.5 rounded bg-paper px-1 font-mono text-[11px] text-ink-soft">{p.codigo}</span>{p.nombre}
+                    </span>
+                    <span className="shrink-0 text-xs text-ink-soft" title={`Semestres: ${p.fuente}`}>
+                      {p.semestres} sem. · {p.grupos} grupos{p.fuente.startsWith('supuesto') ? ' *' : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-ink-soft">
+          * Semestres supuestos para la simulación; se ajustan en <code>demo/programas-pasto.csv</code> del backend. Solo Ingeniería de Software usa su horario oficial.
+        </p>
+      </details>
+    </section>
   );
 }
 

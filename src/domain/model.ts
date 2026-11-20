@@ -353,6 +353,17 @@ export interface SalaDemo {
   };
 }
 
+/** A program of the simulated timetable; `fuente` says whether its semesters were given or assumed. */
+export interface ProgramaDemo {
+  codigo: string;
+  nombre: string;
+  nivel: string;
+  semestres: number;
+  grupos: number;
+  sesionesPorSemana: number;
+  fuente: string;
+}
+
 export interface DemoSnapshot {
   generadoEn: string;
   /** Loops of the simulated week; `diaSemana` names the weekday this one plays (Lunes … Viernes). */
@@ -365,6 +376,8 @@ export interface DemoSnapshot {
   minutosSimuladosPorMinuto: number;
   franjas: FranjaDemo[];
   salones: SalaDemo[];
+  /** Software Engineering (real timetable) first, then the programs with a generated one. */
+  programas: ProgramaDemo[];
   /** Started by hand from Simulación: only then does it feed the twin. */
   activa: boolean;
 }
