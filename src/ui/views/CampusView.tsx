@@ -18,7 +18,8 @@ const BLOCKS = [
 
 /**
  * The campus as it is right now, on its real floor plans: one floor at a time, every student space painted by what
- * its camera sees, with the building's floors as a live selector and the selected room's detail beside it.
+ * its camera sees, with the building's floors as a live selector and the selected room beside it: its seats and,
+ * under them, what its camera sees.
  */
 export function CampusView() {
   const { snapshot, twin } = useTwin();
@@ -50,7 +51,7 @@ export function CampusView() {
         <div>
           <h1 tabIndex={-1} className="lettering text-2xl font-semibold">Campus Pasto en vivo</h1>
           <p className="view-intro mt-1 max-w-[72ch] text-sm text-ink-soft">
-            Los planos son los del campus (actualización 2025-B). Cada espacio de estudiantes se pinta según lo que ve su cámara: libre, en uso o con sobrecupo. Las oficinas aparecen en gris porque no se monitorean. Toca un salón para ver el detalle, o abre Disponibilidad para ver los libres por hora.
+            Los planos son los del campus (actualización 2025-B). Cada espacio de estudiantes se pinta según lo que ve su cámara: libre, en uso o con sobrecupo. Las oficinas aparecen en gris porque no se monitorean. Toca un salón para ver sus puestos y su cámara, o abre Disponibilidad para ver los libres por hora.
           </p>
         </div>
         <div role="group" aria-label="Bloque" className="flex rounded-xl border border-rule bg-sheet p-1 text-sm">
@@ -93,7 +94,7 @@ export function CampusView() {
           </ul>
         </section>
         <aside aria-label="Detalle del salón" className="order-3 min-w-0 xl:col-span-2 2xl:col-span-1">
-          {current ? <RoomPanel twin={current} /> : <p className="text-sm text-ink-soft">Toca un salón del plano.</p>}
+          {current ? <RoomPanel twin={current} now={snapshot.now} /> : <p className="text-sm text-ink-soft">Toca un salón del plano.</p>}
         </aside>
       </div>
     </div>

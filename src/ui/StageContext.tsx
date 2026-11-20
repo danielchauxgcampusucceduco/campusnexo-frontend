@@ -16,7 +16,7 @@ export function navigate(view: ViewId) {
   if (location.hash !== `#/${view}`) location.hash = `#/${view}`;
 }
 
-/** The route of the address: `#/salon/310-A` is the view `salon` with the parameter `310-A`. */
+/** The route of the address: `#/campus/310-A` is the view `campus` with the parameter `310-A`. */
 export function parseRoute(hash: string): { view: string; param: string | null } {
   const [view = '', ...rest] = hash.replace(/^#\/?/, '').split('/');
   return { view, param: rest.length > 0 && rest.join('/') ? decodeURIComponent(rest.join('/')) : null };

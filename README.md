@@ -37,15 +37,15 @@ El adaptador valida cada evento del gemelo (enumerados, números finitos, presen
 
 | Ruta | Rol | Qué muestra |
 |---|---|---|
-| `#/campus` | todos | Planos reales por piso, salones piloto 301-A y 303-A, indicadores del campus y detalle del salón |
-| `#/salon` | todos | Planta del salón con la zona del docente y los puestos, escenarios reconocidos, Arduino, fusión de Kalman; operación y pronóstico según el rol |
+| `#/campus` | todos | Planos reales por piso, salones piloto 301-A y 303-A, indicadores del campus y, del salón elegido, sus puestos y debajo lo que ve su cámara (zona del docente y estudiantes) |
+| `#/disponibilidad` | todos | Espacios de estudiantes libres hora por hora, «libres ahora» y, para el personal, las clases sin asistentes |
+| `#/simulacion` | todos (la inicia OPERATOR o ADMIN) | Semana simulada del horario real; no emula nada hasta pulsar «Iniciar simulación» |
 | `#/biblioteca` | todos | Mesas de la sala de lectura con el cronómetro anti-acaparamiento |
 | `#/alertas` | OPERATOR, ADMIN | Alertas recientes, filtrables por tipo |
-| `#/admin` | ADMIN | Puestos (propuesta de la cámara, emparejamiento de CPU, confirmación), medidas de los salones, docentes y estudiantes, salud de sensores y asignación de salones |
-| `#/energia` | todos | Potencia actual frente al horario convencional y ahorro acumulado |
-| `#/funciona` | todos | Mira, mide, decide, actúa, y el recorrido de cada evento por la arquitectura hexagonal |
+| `#/admin` | ADMIN | Puestos (propuesta de la cámara, emparejamiento de CPU, confirmación), medidas de los salones, docentes y estudiantes y asignación de salones |
+| `#/funciona` | todos | Mira, envía, decide, informa, y el recorrido de cada evento por la arquitectura hexagonal |
 
-La columna izquierda lista los escenarios reconocidos ahora, con los salones donde ocurren. Cada vista tiene su tecla (`C` `S` `L` `A` `D` `E` `F`).
+La columna izquierda lista los escenarios reconocidos ahora, con los salones donde ocurren. Cada vista tiene su tecla (`C` `D` `M` `L` `A` `G` `F`).
 
 ## Desarrollo
 

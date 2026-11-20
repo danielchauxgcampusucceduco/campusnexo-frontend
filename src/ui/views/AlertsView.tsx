@@ -96,7 +96,7 @@ export function AlertsView() {
   });
   const openRoom = (spaceId: string) => {
     selectSpace(spaceId);
-    navigate('salon');
+    navigate('campus');
   };
   const groups = groupAlerts(alerts ?? []);
 

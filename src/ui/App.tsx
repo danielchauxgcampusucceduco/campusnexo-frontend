@@ -1,4 +1,4 @@
-import { BellRing, BookOpen, CalendarClock, Cctv, Map, ScanEye, ShieldCheck, Workflow } from 'lucide-react';
+import { BellRing, BookOpen, CalendarClock, Map, ScanEye, ShieldCheck, Workflow } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTwin } from '../application/TwinContext';
 import type { GatewayCapabilities } from '../ports/TwinGateway';
@@ -16,7 +16,6 @@ const CampusView = lazy(() => import('./views/CampusView').then((m) => ({ defaul
 const DisponibilidadView = lazy(() => import('./views/DisponibilidadView').then((m) => ({ default: m.DisponibilidadView })));
 const HowItWorksView = lazy(() => import('./views/HowItWorksView').then((m) => ({ default: m.HowItWorksView })));
 const LibraryView = lazy(() => import('./views/LibraryView').then((m) => ({ default: m.LibraryView })));
-const SalonView = lazy(() => import('./views/SalonView').then((m) => ({ default: m.SalonView })));
 const SimulacionView = lazy(() => import('./views/SimulacionView').then((m) => ({ default: m.SimulacionView })));
 
 interface View {
@@ -31,7 +30,6 @@ interface View {
 const VIEWS: View[] = [
   { id: 'campus', label: 'Campus en vivo', icon: Map, component: CampusView },
   { id: 'disponibilidad', label: 'Disponibilidad', icon: CalendarClock, component: DisponibilidadView },
-  { id: 'salon', label: 'Salón', icon: Cctv, component: SalonView },
   { id: 'simulacion', label: 'Simulación', icon: ScanEye, component: SimulacionView },
   { id: 'biblioteca', label: 'Biblioteca', icon: BookOpen, component: LibraryView },
   { id: 'alertas', label: 'Alertas', icon: BellRing, component: AlertsView, requires: 'operations' },

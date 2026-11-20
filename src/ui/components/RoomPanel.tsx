@@ -1,13 +1,13 @@
-import { Cctv, CameraOff, FlaskConical, Users } from 'lucide-react';
+import { FlaskConical, Users } from 'lucide-react';
 import { floorName, planRoom } from '../../campus/plan';
 import { roomCondition, type TwinSpace } from '../../domain/model';
-import { navigate } from '../StageContext';
 import { CONDITION_META, SPACE_TYPE_LABEL, STATUS_META } from '../theme';
 import { CountUp } from './CountUp';
+import { RoomFloor } from './RoomFloor';
 import { SeatMap } from './SeatMap';
 
-/** Everything about one room, in plain words: who is there, what the camera sees and what the system decided. */
-export function RoomPanel({ twin }: { twin: TwinSpace }) {
+/** Everything about one room, in plain words: who is there, its seats and, under them, what its camera sees. */
+export function RoomPanel({ twin, now }: { twin: TwinSpace; now: number }) {
   const { space, state, activeReservation } = twin;
   const plan = planRoom(space.spaceId);
   const share = Math.min(1.25, state.occupancy / Math.max(1, space.capacity));
@@ -54,11 +54,12 @@ export function RoomPanel({ twin }: { twin: TwinSpace }) {
 
       <SeatMap twin={twin} />
 
-      <button type="button" onClick={() => navigate('salon')}
-        className="flex items-center justify-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-medium text-night-text transition-transform hover:-translate-y-0.5">
-        {state.cameraOnline ? <Cctv className="h-4 w-4 text-signal" /> : <CameraOff className="h-4 w-4 text-[#f6a47f]" />}
-        Ver el salón en detalle
-      </button>
+      {space.accesibleParaEstudiantes && (
+        <section aria-label="Cámara del salón">
+          <h3 className="mb-2 text-sm font-semibold">Cámara del salón</h3>
+          <RoomFloor twin={twin} now={now} />
+        </section>
+      )}
     </div>
   );
 }

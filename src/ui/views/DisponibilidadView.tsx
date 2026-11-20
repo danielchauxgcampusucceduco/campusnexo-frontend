@@ -67,7 +67,7 @@ export function DisponibilidadView() {
     .filter((e) => (tipo === 'todos' || e.tipo === tipo) && (piso === 'todos' || e.piso === piso))
     .sort((a, b) => a.piso - b.piso || a.nombre.localeCompare(b.nombre, 'es', { numeric: true })), [datos, tipo, piso]);
 
-  const abrir = (spaceId: string) => { selectSpace(spaceId); navigate('salon'); };
+  const abrir = (spaceId: string) => { selectSpace(spaceId); navigate('campus'); };
   const esHoy = fecha === hoy();
   const franjas = datos?.espacios[0]?.franjas ?? [];
   const ahora = new Date().toTimeString().slice(0, 8);
