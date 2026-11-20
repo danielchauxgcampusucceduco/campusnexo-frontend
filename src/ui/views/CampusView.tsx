@@ -66,7 +66,7 @@ export function CampusView() {
 
       {pilots.length > 0 && <PilotRooms twins={pilots} selected={selectedSpace} onSelect={selectSpace} />}
 
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <dl className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={<DoorOpen className="h-5 w-5" />} label="Espacios libres ahora" value={<CountUp value={free} />} note={`de ${watched.length} con cámara`} />
         <Kpi icon={<Users className="h-5 w-5" />} label="Personas en el campus" value={<CountUp value={people} />} note={`${inUse} espacios en uso`} />
         <Kpi icon={<UsersRound className="h-5 w-5" />} label="Con sobrecupo" value={<CountUp value={over} />} note={over > 0 ? 'Más personas que puestos' : 'Ninguno'} warn={over > 0} />
@@ -94,7 +94,9 @@ export function CampusView() {
           </ul>
         </section>
         <aside aria-label="Detalle del salón" className="order-3 min-w-0 xl:col-span-2 2xl:col-span-1">
-          {current ? <RoomPanel twin={current} now={snapshot.now} /> : <p className="text-sm text-ink-soft">Toca un salón del plano.</p>}
+          {current
+            ? <div key={current.space.spaceId} className="panel-enter"><RoomPanel twin={current} now={snapshot.now} /></div>
+            : <p className="text-sm text-ink-soft">Toca un salón del plano.</p>}
         </aside>
       </div>
     </div>
@@ -115,7 +117,7 @@ function busiestFloor(twins: readonly TwinSpace[]): number {
 
 function Kpi({ icon, label, value, note, warn }: { icon: ReactNode; label: string; value: ReactNode; note: string; warn?: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 transition-colors duration-500 ${warn ? 'border-[#e8c46a] bg-warn-bg' : 'border-rule bg-sheet'}`}>
+    <div className={`lift rounded-2xl border p-4 ${warn ? 'border-[#e8c46a] bg-warn-bg' : 'border-rule bg-sheet'}`}>
       <dt className="flex items-center gap-2 text-sm text-ink-soft">{icon}{label}</dt>
       <dd className="lettering mt-1 text-3xl font-semibold">{value}</dd>
       <dd className="text-sm text-ink-soft">{note}</dd>
@@ -131,13 +133,13 @@ function PilotRooms({ twins, selected, onSelect }: { twins: TwinSpace[]; selecte
   return (
     <section aria-labelledby="pilot-title">
       <h2 id="pilot-title" className="text-sm font-semibold">Salones piloto</h2>
-      <ul className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ul className="stagger mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {twins.map(({ space, state }) => {
           const meta = CONDITION_META[roomCondition({ space, state })];
           return (
             <li key={space.spaceId}>
               <button type="button" aria-pressed={selected === space.spaceId} onClick={() => onSelect(space.spaceId)}
-                className={`w-full rounded-2xl border p-3 text-left transition-colors ${selected === space.spaceId ? 'border-signal bg-field' : 'border-rule bg-sheet hover:bg-field'}`}>
+                className={`lift w-full rounded-2xl border p-3 text-left ${selected === space.spaceId ? 'border-signal bg-field' : 'border-rule bg-sheet hover:bg-field'}`}>
                 <span className="flex items-center justify-between gap-2">
                   <span className="lettering font-semibold">{space.spaceId}</span>
                   {state.emulated && <span className="flex items-center gap-1 rounded-full bg-ucc-lima px-2 py-0.5 text-xs font-semibold text-ucc-marino"><FlaskConical className="h-3 w-3" />Emulado</span>}

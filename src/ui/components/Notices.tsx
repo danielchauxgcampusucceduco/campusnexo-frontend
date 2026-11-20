@@ -8,7 +8,7 @@ export function Notices() {
       {notices.map((notice) => (
         <div
           key={notice.id}
-          className={`pointer-events-auto flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm shadow-[0_6px_20px_-8px_rgba(29,38,43,0.35)] ${notice.tone === 'error' ? 'border-st-sobrecupo/40 bg-alert-bg text-[#8a2f1f]' : 'border-rule bg-sheet text-ink'}`}
+          className={`notice-enter pointer-events-auto flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm shadow-[0_6px_20px_-8px_rgba(29,38,43,0.35)] ${notice.tone === 'error' ? 'border-st-sobrecupo/40 bg-alert-bg text-[#8a2f1f]' : 'border-rule bg-sheet text-ink'}`}
         >
           {notice.tone === 'error' ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> : <Info className="mt-0.5 h-4 w-4 shrink-0 text-st-optimo" />}
           <span>{notice.text}</span>

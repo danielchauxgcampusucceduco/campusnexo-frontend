@@ -110,10 +110,10 @@ export function DisponibilidadView() {
               ) : libres.length === 0 ? (
                 <p className="mt-2 text-sm text-ink-soft">Ningún espacio libre con los filtros elegidos.</p>
               ) : (
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+                <ul className="stagger mt-3 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
                   {libres.slice(0, 18).map((e) => (
                     <li key={e.spaceId}>
-                      <button type="button" onClick={() => abrir(e.spaceId)} className="w-full rounded-lg border border-rule p-3 text-left text-sm hover:bg-sheet">
+                      <button type="button" onClick={() => abrir(e.spaceId)} className="lift w-full rounded-lg border border-rule p-3 text-left text-sm hover:bg-sheet">
                         <span className="block font-semibold">{e.nombre}</span>
                         <span className="block text-ink-soft">{SPACE_TYPE_LABEL[e.tipo]} · piso {e.piso} · aforo {e.aforo}</span>
                         <span className="mt-1 block font-medium" style={{ color: FRANJA_META[e.ahora ?? 'LIBRE'].ink }}>

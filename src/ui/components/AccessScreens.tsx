@@ -64,16 +64,16 @@ function Presentation() {
           cuando una clase programada queda sin uso.
         </p>
 
-        <ul className="mt-7 grid gap-3 sm:grid-cols-2">
+        <ul className="stagger mt-7 grid gap-3 sm:grid-cols-2">
           {FEATURES.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="rounded-xl border border-night-line bg-white/[0.04] p-3.5 backdrop-blur-[2px]">
+            <li key={title} className="lift rounded-xl border border-night-line bg-white/[0.04] p-3.5 backdrop-blur-[2px] hover:border-signal/60 hover:bg-white/[0.07]">
               <p className="flex items-center gap-2 text-sm font-semibold text-white"><Icon className="h-4 w-4 text-signal" />{title}</p>
               <p className="mt-1 text-sm text-night-text/85">{text}</p>
             </li>
           ))}
         </ul>
 
-        <ol aria-label="Cómo viajan los datos" className="mt-7 hidden flex-wrap items-center gap-x-2 gap-y-2 text-xs sm:flex">
+        <ol aria-label="Cómo viajan los datos" className="stagger mt-7 hidden flex-wrap items-center gap-x-2 gap-y-2 text-xs sm:flex">
           {FLOW.map(({ icon: Icon, label }, i) => (
             <li key={label} className="flex items-center gap-2">
               <span className="flex items-center gap-1.5 rounded-full border border-night-line bg-night px-2.5 py-1 text-night-text">

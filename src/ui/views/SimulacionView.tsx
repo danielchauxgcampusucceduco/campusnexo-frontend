@@ -198,7 +198,7 @@ export function SimulacionView() {
           </div>
         </div>
 
-        <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className="stagger mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Kpi label="Libres ahora" value={libres} of={todos.length} />
           <Kpi label="Con personas" value={enUso} of={todos.length} />
           <Kpi label="Programados sin nadie" value={sinUso} of={todos.length} warn />
@@ -259,11 +259,11 @@ export function SimulacionView() {
         {conHallazgos.length === 0
           ? <p className="mt-2 text-sm text-ink-soft">Nada fuera de lo normal en este momento.</p>
           : (
-            <ul className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <ul className="stagger mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {conHallazgos.map((s) => (
                 <li key={s.spaceId}>
                   <button type="button" onClick={() => setElegido(s.spaceId)}
-                    className={`w-full rounded-lg border p-3 text-left text-sm hover:bg-sheet ${s.spaceId === sala.spaceId ? 'border-night' : 'border-rule'}`}>
+                    className={`lift w-full rounded-lg border p-3 text-left text-sm hover:bg-sheet ${s.spaceId === sala.spaceId ? 'border-night' : 'border-rule'}`}>
                     <span className="font-semibold">{s.nombre}</span>
                     <ul className="mt-1 list-disc pl-4 text-ink-soft">
                       {s.ahora.hallazgos.map((h) => <li key={h}>{h}</li>)}
@@ -280,7 +280,7 @@ export function SimulacionView() {
 
 function Kpi({ label, value, of, unit, warn }: { label: string; value: number | string; of?: number; unit?: string; warn?: boolean }) {
   return (
-    <div className="rounded-lg border border-rule bg-sheet p-3">
+    <div className="lift rounded-lg border border-rule bg-sheet p-3">
       <dt className="text-xs text-ink-soft">{label}</dt>
       <dd className="lettering mt-1 text-3xl font-semibold tabular-nums" style={warn && Number(value) > 0 ? { color: 'var(--color-st-noshow-ink)' } : undefined}>
         {value}{unit && <span className="ml-1 text-base font-normal text-ink-soft">{unit}</span>}
