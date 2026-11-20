@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { BackendError } from '../adapters/backend/http';
 import { LoginRequiredError, login, logout } from '../adapters/backend/BackendSession';
+import { watchIdle } from './idleSignOut';
 import type { TwinSpace } from '../domain/model';
 import type { OperacionesPort } from '../ports/OperacionesPort';
 import type { TwinGateway, TwinSnapshot } from '../ports/TwinGateway';
@@ -100,6 +101,22 @@ export function TwinProvider({ children, screens }: { children: ReactNode; scree
         setConnection(null);
         setStatus({ kind: 'login', reason: 'Tu sesión terminó; vuelve a iniciar sesión.' });
       }
+    });
+  }, [connection]);
+
+  // 30 minutes without using the dashboard (in any tab) close the session; this window then asks to sign in again.
+  useEffect(() => {
+    if (!connection) return;
+    return watchIdle({
+      target: window,
+      storage: (() => { try { return window.localStorage; } catch { return null; } })(),
+      now: Date.now,
+      onIdle: () => {
+        connection.gateway.stop();
+        logout();
+        setConnection(null);
+        setStatus({ kind: 'login', reason: 'Tu sesión se cerró tras 30 minutos sin actividad; vuelve a iniciar sesión.' });
+      },
     });
   }, [connection]);
 
