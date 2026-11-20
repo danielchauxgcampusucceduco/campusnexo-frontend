@@ -36,11 +36,6 @@
   --color-st-popup: #2f6fb0;
   --color-st-mantenimiento: #6b6f73;
 
-  --color-hv-frio: #3b82c4;
-  --color-hv-calor: #d9822b;
-  --color-hv-ahorro: #80ba27;
-  --color-hv-aire: #5fc3d6;
-  --color-hv-manual: #2f6fb0;
 
   /* Text inks: the same hues darkened to pass WCAG AA (≥ 4.5:1) on paper, sheet and tinted badges.
      The bright colours above stay for fills, dots and the navy viewports. */
@@ -52,26 +47,14 @@
   --color-st-noshow-ink: #3f5f75;
   --color-st-popup-ink: #245b92;
   --color-st-mantenimiento-ink: #53575b;
-  --color-hv-frio-ink: #25609a;
-  --color-hv-calor-ink: #94500f;
-  --color-hv-ahorro-ink: #4a6e12;
-  --color-hv-aire-ink: #2f6f80;
-  --color-hv-manual-ink: #245b92;
 
-  /* Room condition on the campus plan: occupancy in cyan, wasted energy in warm lamp colours. */
+  /* Room condition on the campus plan: free in slate, occupancy in cyan, over capacity in red. */
   --color-rc-libre: #4f6672;
   --color-rc-libre-ink: #3d4f58;
   --color-rc-ocupado: #00acc9;
   --color-rc-ocupado-ink: #00758a;
   --color-rc-sobrecupo: #e0574a;
   --color-rc-sobrecupo-ink: #a63823;
-  --color-rc-luces: #f2c14e;
-  --color-rc-luces-ink: #7a5508;
-  --color-rc-equipos: #c779e0;
-  --color-rc-equipos-ink: #7a3a92;
-  --color-rc-ambos: #f08a3e;
-  --color-rc-ambos-ink: #9a4a10;
-  --color-lamp: #ffd98a;
 
   /* Surfaces that were hard-coded: fields and chips, and the backgrounds of errors and warnings. */
   --color-field: #ffffff;
@@ -98,6 +81,14 @@
   ::selection {
     background: color-mix(in oklab, var(--color-signal) 40%, transparent);
   }
+  button:not(:disabled),
+  [role='button'] {
+    transition-property: transform, background-color, color, border-color, opacity, box-shadow;
+    transition-duration: 160ms;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
   :focus-visible {
     outline: 2px solid var(--color-st-optimo);
     outline-offset: 2px;
@@ -116,35 +107,7 @@
   }
 }
 
-/* A room whose lights and computers were just switched off: its footprint ripples outwards a few times. */
-.iso-pulse {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: iso-pulse 1.3s cubic-bezier(0.16, 1, 0.3, 1) 3;
-}
-@keyframes iso-pulse {
-  from { transform: scale(1); opacity: 1; }
-  to { transform: scale(1.45); opacity: 0; }
-}
-
 /* ---- Campus plan motion: every animation says something about the room ---------------------- */
-/* Lights on: the lamp glow switches on with a short flicker, then breathes slowly. */
-.lamp-on {
-  animation: lamp-switch 900ms steps(1, end) 1, lamp-breathe 4.5s ease-in-out 900ms infinite;
-}
-@keyframes lamp-switch {
-  0% { opacity: 0; } 20% { opacity: 0.9; } 30% { opacity: 0.2; } 45% { opacity: 1; } 100% { opacity: 1; }
-}
-@keyframes lamp-breathe {
-  0%, 100% { opacity: 1; } 50% { opacity: 0.72; }
-}
-/* Energy wasted in an empty room: the room fill pulses until the Arduino switches it off. */
-.room-waste {
-  animation: room-waste 1.6s ease-in-out infinite;
-}
-@keyframes room-waste {
-  0%, 100% { fill-opacity: 0.62; } 50% { fill-opacity: 0.22; }
-}
 .room-fill {
   transition: fill 600ms ease, fill-opacity 600ms ease, stroke 300ms ease;
 }
@@ -173,21 +136,6 @@
 @keyframes person-sway {
   0%, 100% { transform: translate(0, 0); } 50% { transform: translate(6%, -8%); }
 }
-/* Computers drawing power: the screen glyph glows like a monitor. */
-.screens-on {
-  animation: screens 2.2s ease-in-out infinite;
-}
-@keyframes screens {
-  0%, 100% { opacity: 1; } 50% { opacity: 0.55; }
-}
-/* A sensor that is reporting: a soft ring keeps expanding from its dot. */
-.live-dot {
-  box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-st-libre) 60%, transparent);
-  animation: live-dot 2s ease-out infinite;
-}
-@keyframes live-dot {
-  to { box-shadow: 0 0 0 7px transparent; }
-}
 /* Changing floor: the new plan rises into place. */
 .floor-enter {
   animation: floor-enter 520ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -195,6 +143,105 @@
 @keyframes floor-enter {
   from { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(3px); }
   to { opacity: 1; transform: none; filter: none; }
+}
+
+/* ---- Moving between views -------------------------------------------------------------------- */
+/*
+ * With the View Transitions API (App.tsx) only the content and the menu highlight move; the rest of the page stays
+ * still. The content slides the way the menu goes: down the list it comes in from the right, up the list from the left.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+.view-content {
+  view-transition-name: view-content;
+}
+.nav-active-pill {
+  view-transition-name: nav-active;
+}
+::view-transition-group(nav-active) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-old(view-content) {
+  animation: view-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(view-content) {
+  animation: view-in 420ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+}
+:root[data-nav-dir='back'] ::view-transition-old(view-content) {
+  animation-name: view-out-back;
+}
+:root[data-nav-dir='back'] ::view-transition-new(view-content) {
+  animation-name: view-in-back;
+}
+@keyframes view-out {
+  to { opacity: 0; transform: translateX(-18px); }
+}
+@keyframes view-in {
+  from { opacity: 0; transform: translateX(26px); }
+}
+@keyframes view-out-back {
+  to { opacity: 0; transform: translateX(18px); }
+}
+@keyframes view-in-back {
+  from { opacity: 0; transform: translateX(-26px); }
+}
+/* Browsers without view transitions: the new view rises into place. */
+.view-enter {
+  animation: floor-enter 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- Content entering and responding --------------------------------------------------------- */
+/* Cards of a group arrive one after another. */
+.stagger > * {
+  animation: floor-enter 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.stagger > :nth-child(2) { animation-delay: 50ms; }
+.stagger > :nth-child(3) { animation-delay: 100ms; }
+.stagger > :nth-child(4) { animation-delay: 150ms; }
+.stagger > :nth-child(5) { animation-delay: 200ms; }
+.stagger > :nth-child(6) { animation-delay: 240ms; }
+.stagger > :nth-child(n + 7) { animation-delay: 280ms; }
+
+/* A card that can be touched lifts a little under the pointer. */
+.lift {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease,
+    background-color 220ms ease;
+}
+@media (hover: hover) {
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -14px rgb(19 39 64 / 0.45);
+  }
+}
+
+/* Choosing another room: its panel slides in from the plan's side. */
+.panel-enter {
+  animation: panel-enter 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes panel-enter {
+  from { opacity: 0; transform: translateX(16px); }
+}
+
+/* A notice slides up from the corner. */
+.notice-enter {
+  animation: notice-enter 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes notice-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+}
+
+/* While a view loads: grey blocks that breathe, in the shape of what is coming. */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-rule) 0%, var(--color-sheet) 50%, var(--color-rule) 100%);
+  background-size: 200% 100%;
+  animation: skeleton 1.4s ease-in-out infinite;
+}
+@keyframes skeleton {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
 }
 
 /* "Cómo funciona": the four steps rise in order and a pulse travels from one to the next. */
@@ -222,8 +269,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flow-arrow,
-  .lamp-on, .room-waste, .seat-alert, .person, .screens-on, .live-dot {
+  .flow-arrow, .seat-alert, .person, .skeleton {
+    animation: none !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation: none !important;
   }
   *,
