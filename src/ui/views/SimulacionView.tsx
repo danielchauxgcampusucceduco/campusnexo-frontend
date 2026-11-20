@@ -1,4 +1,4 @@
-import { CameraOff, FlaskConical, LogOut } from 'lucide-react';
+import { CameraOff, FlaskConical, LogOut, Play } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTwin } from '../../application/TwinContext';
 import { BackendError } from '../../adapters/backend/http';
@@ -64,6 +64,8 @@ function SalirDeLaSimulacion() {
 function useDemo() {
   const { operaciones } = useTwin();
   const [demo, setDemo] = useState<DemoSnapshot | null>(null);
+  const [iniciando, setIniciando] = useState(false);
+  const [falloAlIniciar, setFalloAlIniciar] = useState<string | null>(null);
   const [error, setError] = useState<BackendError | null>(null);
   useEffect(() => {
     let alive = true;
@@ -75,11 +77,53 @@ function useDemo() {
     const timer = setInterval(load, POLL_MS);
     return () => { alive = false; clearInterval(timer); };
   }, [operaciones]);
-  return { demo, error };
+  const iniciar = async () => {
+    setIniciando(true);
+    setFalloAlIniciar(null);
+    try {
+      setDemo(await operaciones.iniciarDemo());
+    } catch (failure) {
+      setFalloAlIniciar(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setIniciando(false);
+    }
+  };
+  return { demo, error, iniciar, iniciando, falloAlIniciar };
+}
+
+/** Before anyone starts it: what the simulation does, and the button that starts it (staff only). */
+function SinIniciar({ demo, onIniciar, iniciando, fallo }: { demo: DemoSnapshot; onIniciar: () => void; iniciando: boolean; fallo: string | null }) {
+  const { gateway } = useTwin();
+  const staff = gateway.capabilities.operations;
+  return (
+    <section aria-labelledby="sim-title" className="max-w-[72ch]">
+      <h1 id="sim-title" tabIndex={-1} className="lettering flex items-center gap-2 text-2xl font-semibold">
+        Simulación del campus
+        <span className="rounded-full border border-rule px-2 py-0.5 text-xs font-medium text-ink-soft">Detenida</span>
+      </h1>
+      <p className="view-intro mt-2 text-sm text-ink-soft">
+        La simulación recorre una semana de {demo.programa} con su horario real: cada día hábil, de 7:00 a 22:00, pasa en unos
+        {' '}{formatNumber(900 / demo.minutosSimuladosPorMinuto, 0)} minutos. Mientras está activa, envía al gemelo frames de cámara
+        marcados como <b>emulados</b>, y el campus en vivo, la disponibilidad y las alertas reaccionan como con cámaras reales.
+      </p>
+      <p className="mt-2 text-sm text-ink-soft">
+        Ahora no se emula nada: todo lo que muestra el tablero viene de cámaras reales. Al salir de la simulación se borran todos los datos emulados.
+      </p>
+      {staff ? (
+        <button type="button" onClick={onIniciar} disabled={iniciando}
+          className="mt-5 flex items-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-medium text-night-text transition-transform hover:-translate-y-0.5 disabled:opacity-60">
+          <Play className="h-4 w-4 text-signal" />{iniciando ? 'Iniciando…' : 'Iniciar simulación'}
+        </button>
+      ) : (
+        <p className="mt-5 rounded-lg bg-sheet px-3 py-2 text-sm">La inicia un operador o un administrador.</p>
+      )}
+      {fallo && <p role="alert" className="mt-2 text-sm text-st-sobrecupo-ink">No se pudo iniciar la simulación: {fallo}</p>}
+    </section>
+  );
 }
 
 export function SimulacionView() {
-  const { demo, error } = useDemo();
+  const { demo, error, iniciar, iniciando, falloAlIniciar } = useDemo();
   const [filtro, setFiltro] = useState<'todos' | SpaceType>('todos');
   const [elegido, setElegido] = useState<string | null>(null);
 
@@ -101,6 +145,10 @@ export function SimulacionView() {
         </p>
       </section>
     );
+  }
+
+  if (!demo.activa) {
+    return <SinIniciar demo={demo} onIniciar={() => void iniciar()} iniciando={iniciando} fallo={falloAlIniciar} />;
   }
 
   const todos = demo.salones;

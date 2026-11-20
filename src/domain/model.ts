@@ -365,6 +365,8 @@ export interface DemoSnapshot {
   minutosSimuladosPorMinuto: number;
   franjas: FranjaDemo[];
   salones: SalaDemo[];
+  /** Started by hand from Simulación: only then does it feed the twin. */
+  activa: boolean;
 }
 
 /** POST /admin/personas/importar: rows read, people saved and each rejected row with its reason. */

@@ -114,6 +114,10 @@ export class BackendOperaciones implements OperacionesPort {
     return this.http('/demo');
   }
 
+  iniciarDemo(): Promise<DemoSnapshot> {
+    return this.http('/demo', { method: 'POST' });
+  }
+
   async salirDeLaDemo(): Promise<string[]> {
     const { salonesLimpiados } = await this.http<{ salonesLimpiados: string[] }>('/demo', { method: 'DELETE', timeoutMs: 60_000 });
     return salonesLimpiados;
